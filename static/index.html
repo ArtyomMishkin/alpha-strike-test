@@ -3013,10 +3013,11 @@ function initDecimalStats() {
                     }
                 }
             }, 1000);
-            
+            initDecimalStats();
+            updatePlayersDisplay();
             setTimeout(() => {
                 console.log('🚀 ========= Alpha Strike =========');
-                console.log('👥 Пользователи предустановлены (10 игроков)');
+                console.log('👥 Пользователи предустановлены');
                 console.log('');
                 console.log('⚔️ Основная команда:');
                 console.log('   alphaStrike.completeMission("Brighton", 0, [{id:1,faction:"stives"},{id:2,faction:"capellan"}], 150, "stives", "Описание")');
