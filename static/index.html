@@ -1,0 +1,3005 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha Strike - Историческая карта боевых действий</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #0a0a1a;
+            color: #e0e0ff;
+            min-height: 100vh;
+            overflow-x: auto;
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(20, 40, 80, 0.3) 0%, transparent 20%),
+                radial-gradient(circle at 90% 90%, rgba(80, 20, 60, 0.3) 0%, transparent 20%);
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0 30px 0;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        
+        h1 {
+            color: #4a9eff;
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 15px rgba(74, 158, 255, 0.7);
+        }
+        
+        .subtitle {
+            color: #a0a0ff;
+            font-size: 1.2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        .map-container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .galaxy-map {
+            flex: 3;
+            min-width: 1000px;
+            height: 700px;
+            position: relative;
+            background: 
+                radial-gradient(circle at center, rgba(10, 15, 30, 0.1) 0%, rgba(5, 10, 20, 0.9) 100%),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="0.5" fill="white" opacity="0.2"/></svg>') repeat;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid #2a2a5a;
+            box-shadow: 0 0 50px rgba(0, 10, 30, 0.8);
+        }
+        
+        #d3-map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .d3-link {
+            stroke-opacity: 0.6;
+            stroke-width: 2;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+        
+        .d3-link.davion {
+            stroke: #cd7f32;
+        }
+        
+        .d3-link.freeWorlds {
+            stroke: #800080;
+        }
+        
+        .d3-link.stives {
+            stroke: #40e0d0;
+        }
+        
+        .d3-link.capellan {
+            stroke: #008000;
+        }
+        
+        .d3-link.hidden {
+            stroke-opacity: 0;
+        }
+        
+        .planet {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 20;
+            background: radial-gradient(circle at 30% 30%, 
+                rgba(255, 255, 255, 1) 0%, 
+                rgba(255, 255, 255, 0.9) 20%, 
+                currentColor 70%);
+            box-shadow: 
+                0 0 30px currentColor,
+                0 0 20px rgba(255, 255, 255, 0.7),
+                0 0 10px rgba(0, 0, 0, 0.9),
+                inset 0 0 10px rgba(255, 255, 255, 0.4);
+            animation: intense-pulse 1.5s infinite alternate;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            transform: translate(-9px, -9px);
+        }
+        
+        @keyframes intense-pulse {
+            from {
+                box-shadow: 
+                    0 0 25px currentColor,
+                    0 0 15px rgba(255, 255, 255, 0.5),
+                    0 0 5px rgba(0, 0, 0, 0.8),
+                    inset 0 0 10px rgba(255, 255, 255, 0.3);
+            }
+            to {
+                box-shadow: 
+                    0 0 40px currentColor,
+                    0 0 25px rgba(255, 255, 255, 0.8),
+                    0 0 15px rgba(0, 0, 0, 0.9),
+                    inset 0 0 15px rgba(255, 255, 255, 0.6);
+            }
+        }
+        
+        .planet:hover {
+            transform: translate(-9px, -9px) scale(2.3);
+            z-index: 100;
+            animation: none;
+            box-shadow: 
+                0 0 50px currentColor,
+                0 0 35px rgba(255, 255, 255, 0.9),
+                0 0 20px rgba(0, 0, 0, 1),
+                0 0 8px rgba(255, 255, 255, 0.7);
+        }
+        
+        .planet.has-missions {
+            box-shadow: 
+                0 0 35px currentColor,
+                0 0 25px rgba(255, 255, 255, 0.7),
+                0 0 12px rgba(0, 0, 0, 0.9),
+                0 0 8px gold,
+                0 0 4px rgba(255, 215, 0, 0.7);
+            animation: mission-pulse 1s infinite alternate;
+            border: 3px solid gold;
+        }
+        
+        @keyframes mission-pulse {
+            from {
+                box-shadow: 
+                    0 0 30px currentColor,
+                    0 0 20px rgba(255, 255, 255, 0.6),
+                    0 0 10px rgba(0, 0, 0, 0.8),
+                    0 0 5px gold;
+            }
+            to {
+                box-shadow: 
+                    0 0 50px currentColor,
+                    0 0 30px rgba(255, 255, 255, 0.8),
+                    0 0 15px rgba(0, 0, 0, 1),
+                    0 0 12px gold,
+                    0 0 6px rgba(255, 215, 0, 0.9);
+            }
+        }
+        
+        .planet-name {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #a0c8ff;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            background-color: rgba(10, 20, 40, 0.97);
+            padding: 6px 14px;
+            border-radius: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            pointer-events: none;
+            border: 2px solid #3a3a7a;
+            text-align: center;
+            min-width: 140px;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            visibility: hidden;
+        }
+
+        .planet-name.top {
+            bottom: auto;
+            top: -40px;
+        }
+
+        .planet:hover .planet-name {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .missions-tooltip {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: #ffcc99;
+            text-align: left;
+            max-width: 200px;
+            white-space: normal;
+        }
+        
+        .mission-item {
+            padding: 3px 0;
+            border-bottom: 1px dotted rgba(255, 255, 255, 0.15);
+        }
+        
+        .mission-item:last-child {
+            border-bottom: none;
+        }
+        
+        .encirclement-indicator {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(255, 0, 0, 0.2);
+            border: 3px solid rgba(255, 100, 100, 0.9);
+            z-index: 10;
+            animation: encirclement-pulse 2s infinite;
+            pointer-events: auto;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.9);
+            transform: translate(-20px, -20px);
+        }
+        
+        @keyframes encirclement-pulse {
+            0%, 100% { 
+                transform: translate(-20px, -20px) scale(1); 
+                box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+                border-color: rgba(255, 100, 100, 1);
+            }
+            50% { 
+                transform: translate(-20px, -20px) scale(1.3);
+                box-shadow: 0 0 40px rgba(255, 0, 0, 1);
+                border-color: rgba(255, 150, 150, 1);
+            }
+        }
+        
+        .info-panel {
+            flex: 1;
+            min-width: 400px;
+            background-color: rgba(15, 20, 40, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid #3a3a6a;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        
+        .faction-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: rgba(15, 20, 40, 0.7);
+            border-radius: 10px;
+            border: 1px solid #2a2a5a;
+        }
+        
+        .faction-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .faction-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px currentColor;
+        }
+        
+        .davion-color {
+            background-color: #cd7f32;
+            border: 2px solid #ff9933;
+        }
+        
+        .free-worlds-color {
+            background-color: #800080;
+            border: 2px solid #cc00cc;
+        }
+        
+        .stives-color {
+            background-color: #40e0d0;
+            border: 2px solid #00ffff;
+        }
+        
+        .capellan-color {
+            background-color: #008000;
+            border: 2px solid #00ff00;
+        }
+        
+        .instructions {
+            background-color: rgba(20, 25, 50, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            border: 1px solid #3a3a7a;
+        }
+        
+        .planet-details {
+            display: none;
+        }
+        
+        .planet-details.active {
+            display: block;
+        }
+        
+        .details-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .details-title {
+            color: #4a9eff;
+            font-size: 1.8rem;
+        }
+        
+        .faction-indicator {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .faction-davion {
+            background-color: rgba(205, 127, 50, 0.2);
+            color: #ff9933;
+            border: 1px solid #cd7f32;
+        }
+        
+        .faction-free-worlds {
+            background-color: rgba(128, 0, 128, 0.2);
+            color: #cc00cc;
+            border: 1px solid #800080;
+        }
+        
+        .faction-stives {
+            background-color: rgba(64, 224, 208, 0.2);
+            color: #00ffff;
+            border: 1px solid #40e0d0;
+        }
+        
+        .faction-capellan {
+            background-color: rgba(0, 128, 0, 0.2);
+            color: #00ff00;
+            border: 1px solid #008000;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background-color: rgba(30, 40, 70, 0.6);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #3a4a7a;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #a0a0ff;
+        }
+        
+        .neutral-note {
+            background-color: rgba(40, 50, 90, 0.6);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            border-left: 4px solid #4a6aba;
+        }
+        
+        .missions-container {
+            background-color: rgba(40, 50, 90, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            border: 1px solid #3a4a7a;
+        }
+        
+        .missions-title {
+            font-size: 1.2rem;
+            color: #ffcc66;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .border-status {
+            background-color: rgba(255, 204, 102, 0.2);
+            color: #ffcc66;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            border: 1px solid #ffcc66;
+        }
+        
+        .border-status.safe {
+            background-color: rgba(102, 204, 102, 0.2);
+            color: #66cc66;
+            border-color: #66cc66;
+        }
+        
+        .mission {
+            background-color: rgba(50, 60, 100, 0.6);
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #ffcc66;
+        }
+        
+        .mission h4 {
+            color: #ffcc66;
+            margin-bottom: 5px;
+        }
+        
+        .mission p {
+            font-size: 0.9rem;
+            color: #ccccff;
+        }
+        
+        .status-info {
+            background-color: rgba(30, 40, 70, 0.6);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+            color: #a0c8ff;
+            border: 1px solid #3a4a7a;
+        }
+        
+        .chronics-container {
+            background-color: rgba(40, 50, 90, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            border: 1px solid #3a4a7a;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .chronic-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(30, 40, 70, 0.3);
+            border-radius: 6px;
+            border-left: 3px solid;
+            font-size: 0.85rem;
+        }
+        
+        .chronic-type-faction {
+            border-left-color: #ff9933;
+        }
+        
+        .chronic-type-mission {
+            border-left-color: #40e0d0;
+        }
+        
+        .chronic-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .chronic-date {
+            color: #8888cc;
+            font-size: 0.75rem;
+        }
+        
+        .chronic-user {
+            color: #66ccff;
+            font-weight: bold;
+        }
+        
+        .chronic-details {
+            color: #ccccff;
+            margin-top: 5px;
+        }
+        
+        .user-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .user-davion {
+            background-color: rgba(205, 127, 50, 0.2);
+            color: #ff9933;
+            border: 1px solid #cd7f32;
+        }
+        
+        .user-free-worlds {
+            background-color: rgba(128, 0, 128, 0.2);
+            color: #cc00cc;
+            border: 1px solid #800080;
+        }
+        
+        .user-stives {
+            background-color: rgba(64, 224, 208, 0.2);
+            color: #00ffff;
+            border: 1px solid #40e0d0;
+        }
+        
+        .user-capellan {
+            background-color: rgba(0, 128, 0, 0.2);
+            color: #00ff00;
+            border: 1px solid #008000;
+        }
+        
+        /* Новые стили для статистики игроков */
+        .players-container {
+            background-color: rgba(20, 25, 50, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #3a3a7a;
+        }
+        
+        .players-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3a4a7a;
+        }
+        
+        .players-title {
+            color: #ffcc66;
+            font-size: 1.5rem;
+        }
+        
+        .players-stats-overview {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .faction-stats {
+            flex: 1;
+            min-width: 300px;
+            background-color: rgba(30, 40, 70, 0.6);
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid;
+        }
+        
+        .faction-stats.stives {
+            border-color: #40e0d0;
+        }
+        
+        .faction-stats.capellan {
+            border-color: #008000;
+        }
+        
+        .faction-stats-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid currentColor;
+        }
+        
+        .faction-stats-title {
+            color: inherit;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stats-label {
+            color: #a0c8ff;
+        }
+        
+        .stats-value {
+            font-weight: bold;
+        }
+        
+        .players-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .players-table th {
+            background-color: rgba(40, 50, 90, 0.8);
+            color: #ffcc66;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #3a4a7a;
+        }
+        
+        .players-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .players-table tr:hover {
+            background-color: rgba(50, 60, 100, 0.4);
+        }
+        
+        .player-name {
+            font-weight: bold;
+            color: #88ccff;
+        }
+        
+        .player-rank {
+            font-size: 0.8rem;
+            color: #aaaaff;
+            margin-top: 3px;
+        }
+        
+        .player-faction {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .player-faction.stives {
+            background-color: rgba(64, 224, 208, 0.2);
+            color: #00ffff;
+            border: 1px solid #40e0d0;
+        }
+        
+        .player-faction.capellan {
+            background-color: rgba(0, 128, 0, 0.2);
+            color: #00ff00;
+            border: 1px solid #008000;
+        }
+        
+        .player-stats {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .stat-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            border-radius: 8px;
+            min-width: 70px;
+        }
+        
+        .stat-badge.victories {
+            background-color: rgba(102, 204, 102, 0.2);
+            border: 1px solid #66cc66;
+        }
+        
+        .stat-badge.defeats {
+            background-color: rgba(255, 102, 102, 0.2);
+            border: 1px solid #ff6666;
+        }
+        
+        .stat-badge.draws {
+            background-color: rgba(255, 204, 102, 0.2);
+            border: 1px solid #ffcc66;
+        }
+        
+        .stat-count {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .stat-label-small {
+            font-size: 0.75rem;
+            margin-top: 3px;
+        }
+        
+        .last-game {
+            font-size: 0.85rem;
+            max-width: 250px;
+        }
+        
+        .last-game-planet {
+            color: #ffcc66;
+            font-weight: bold;
+        }
+        
+        .last-game-result {
+            margin-top: 3px;
+        }
+        
+        .result-success {
+            color: #66cc66;
+        }
+        
+        .result-failure {
+            color: #ff6666;
+        }
+        
+        .result-draw {
+            color: #8888cc;
+        }
+        
+        .player-active {
+            position: relative;
+        }
+        
+        .player-active::after {
+            content: '';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #66cc66;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .battle-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-right: 5px;
+            background-color: rgba(74, 158, 255, 0.2);
+            border: 1px solid #4a9eff;
+            color: #88ccff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Alpha Strike - Историческая карта боевых действий</h1>
+            <p class="subtitle">Динамическая карта с системой военных хроник | <span id="chronicles-count">0</span> записей | <span id="users-count">14</span> игроков | <span id="total-battles">0</span> сражений</p>
+        </header>
+        
+        <div class="map-container">
+            <div class="galaxy-map" id="galaxy-map">
+                <div id="d3-map-container"></div>
+                <!-- Планеты будут добавлены сюда -->
+            </div>
+            
+            <div class="info-panel">
+                <div class="status-info" id="territory-status">
+                    Статус: Инициализация...
+                </div>
+                
+                <div class="info-placeholder" id="info-placeholder">
+                    <h3>Выберите планету</h3>
+                    <p>Наведите курсор на любую планету на карте, чтобы увидеть её характеристики.</p>
+                    <p>Кликните по планете для просмотра доступных миссий и истории операций.</p>
+                </div>
+                
+                <div class="planet-details" id="planet-details"></div>
+            </div>
+        </div>
+        
+        <!-- Контейнер для статистики игроков -->
+        <div class="players-container" id="players-container">
+            <div class="players-header">
+                <h2 class="players-title">📊 Статистика игроков</h2>
+                <div style="color: #88ccff; font-size: 0.9rem;">
+                    Всего сражений: <span id="total-battles-count">0</span> |
+                    Активных: <span id="active-players">0</span>
+                </div>
+            </div>
+            
+            <div class="players-stats-overview">
+                <div class="faction-stats stives">
+                    <div class="faction-stats-header">
+                        <div class="faction-color stives-color"></div>
+                        <div class="faction-stats-title">Сент-Ивское Объединение</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Игроков:</div>
+                        <div class="stats-value" id="stives-players">6</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Побед:</div>
+                        <div class="stats-value" id="stives-victories">0</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Поражений:</div>
+                        <div class="stats-value" id="stives-defeats">0</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Ничьих:</div>
+                        <div class="stats-value" id="stives-draws">0</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Коэффициент побед:</div>
+                        <div class="stats-value" id="stives-ratio">0%</div>
+                    </div>
+                </div>
+                
+                <div class="faction-stats capellan">
+                    <div class="faction-stats-header">
+                        <div class="faction-color capellan-color"></div>
+                        <div class="faction-stats-title">Капелланская Конфедерация</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Игроков:</div>
+                        <div class="stats-value" id="capellan-players">4</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Побед:</div>
+                        <div class="stats-value" id="capellan-victories">0</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Поражений:</div>
+                        <div class="stats-value" id="capellan-defeats">0</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Ничьих:</div>
+                        <div class="stats-value" id="capellan-draws">0</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-label">Коэффициент побед:</div>
+                        <div class="stats-value" id="capellan-ratio">0%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <table class="players-table">
+                <thead>
+                    <tr>
+                        <th>Игрок</th>
+                        <th>Фракция / Звание</th>
+                        <th>Статистика</th>
+                        <th>Последнее сражение</th>
+                        <th>Активность</th>
+                    </tr>
+                </thead>
+                <tbody id="players-table-body">
+                    <!-- Данные будут добавлены через JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="faction-legend">
+            <div class="faction-item">
+                <div class="faction-color davion-color"></div>
+                <div class="faction-name">Дом Дэвион (бронзовые) - 32 системы</div>
+            </div>
+            <div class="faction-item">
+                <div class="faction-color free-worlds-color"></div>
+                <div class="faction-name">Содружество Свободных Миров (фиолетовые) - 9 систем</div>
+            </div>
+            <div class="faction-item">
+                <div class="faction-color stives-color"></div>
+                <div class="faction-name">Сент-Ивское Объединение (бирюзовые) - 17 систем</div>
+            </div>
+            <div class="faction-item">
+                <div class="faction-color capellan-color"></div>
+                <div class="faction-name">Капелланская Конфедерация (зеленые) - 48 систем</div>
+            </div>
+        </div>
+        
+        <!-- Контейнер для отображения последних хроник -->
+        <div class="chronics-container" id="recent-chronics">
+            <h3 style="color: #ffcc66; margin-bottom: 15px;">Последние военные операции</h3>
+            <div id="chronics-list"></div>
+        </div>
+        
+        <div class="instructions">
+            <p><strong>Информационная панель:</strong></p>
+            <p>• Все операции автоматически сохраняются</p>
+            <p>• Учитываются: пользователь, планета, тип операции, результат</p>
+            <p>• Красные кружки - окруженные планеты</p>
+            <p>• Золотые планеты - с доступными миссиями</p>
+            <p>• Синие линии - связи между планетами одной фракции</p>
+            <p><strong>Основная команда:</strong></p>
+            <code style="display: block; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; margin: 10px 0; color: #ffcc99;">
+alphaStrike.completeMission('Brighton', 0, [<br>
+&nbsp;&nbsp;{id: 1, faction: 'stives'},<br>
+&nbsp;&nbsp;{id: 2, faction: 'capellan'}<br>
+], 150, 'stives', 'Описание миссии')
+            </code>
+            <p><strong>Параметры:</strong></p>
+            <p>• participants: массив объектов {id, faction}</p>
+            <p>• points: очки перевеса (от 0 до 500)</p>
+            <p>• winningFaction: 'stives' или 'capellan'</p>
+            <p>• description: текстовое описание</p>
+        </div>
+    </div>
+
+    <script>
+        // ===== БАЗОВЫЙ URL ДЛЯ ЗАПРОСОВ =====
+        const isFileProtocol = window.location.protocol === 'file:';
+        const baseUrl = isFileProtocol ? 'http://localhost:8121' : '';
+        
+        // ===== ОСНОВНЫЕ НАСТРОЙКИ =====
+        const ORIGINAL_WIDTH = 1158;
+        const ORIGINAL_HEIGHT = 825;
+        const MAP_WIDTH = 1000;
+        const MAP_HEIGHT = 700;
+        
+        const scaleX = MAP_WIDTH / ORIGINAL_WIDTH;
+        const scaleY = MAP_HEIGHT / ORIGINAL_HEIGHT;
+        
+        // ===== СИСТЕМА ВОЕННЫХ ХРОНИК И ПОЛЬЗОВАТЕЛЕЙ =====
+        const WAR_CHRONICLES_KEY = 'alpha_strike_war_chronicles_v4';
+        const USERS_KEY = 'alpha_strike_users_v4';
+        const PLAYER_STATS_KEY = 'alpha_strike_player_stats_v4';
+        
+        let warChronicles = [];
+        let users = [];
+        let playerStats = {};
+        let showEncircled = true;
+        let showChronics = true;
+        let showD3Links = true;
+        
+        // ===== ФРАКЦИИ =====
+        const factionColors = {
+            davion: { 
+                color: '#cd7f32', 
+                borderColor: '#8b4513', 
+                name: 'Дом Дэвион', 
+                class: 'faction-davion',
+                fillColor: 'rgba(205, 127, 50, 0.08)',
+                glowColor: 'rgba(205, 127, 50, 0.9)',
+                strongColor: '#ff9933'
+            },
+            freeWorlds: { 
+                color: '#800080', 
+                borderColor: '#4b0082', 
+                name: 'Содружество Свободных Миров', 
+                class: 'faction-free-worlds',
+                fillColor: 'rgba(128, 0, 128, 0.08)',
+                glowColor: 'rgba(128, 0, 128, 0.9)',
+                strongColor: '#cc00cc'
+            },
+            stives: { 
+                color: '#40e0d0', 
+                borderColor: '#20b2aa', 
+                name: 'Сент-Ивское Объединение', 
+                class: 'faction-stives',
+                fillColor: 'rgba(64, 224, 208, 0.08)',
+                glowColor: 'rgba(64, 224, 208, 0.9)',
+                strongColor: '#00ffff'
+            },
+            capellan: { 
+                color: '#008000', 
+                borderColor: '#006400', 
+                name: 'Капелланская Конфедерация', 
+                class: 'faction-capellan',
+                fillColor: 'rgba(0, 128, 0, 0.08)',
+                glowColor: 'rgba(0, 128, 0, 0.9)',
+                strongColor: '#00ff00'
+            }
+        };
+        
+        // ===== СПИСОК МИССИЙ =====
+        const allMissions = [
+            "Эвакуация груза",
+            "Контроль поля битвы", 
+            "Уничтожение противника",
+            "Удержание позиции",
+            "Прорыв",
+            "Поиск и уничтожение",
+            "Захват сброшенного груза",
+            "Эскорт",
+            "Удержание боевых точек"
+        ];
+        
+        // ===== ДАННЫЕ ПЛАНЕТ =====
+        const planets =  [
+            // Дом Дэвион (бронзовые)
+            { name: "Campertown", x: 321, y: 112, faction: 'davion' },
+            { name: "Tsinghai", x: 335, y: 71, faction: 'davion' },
+            { name: "Chamdo", x: 412, y: 76, faction: 'davion' },
+            { name: "Lesalles", x: 406, y: 143, faction: 'davion' },
+            { name: "Raballa", x: 481, y: 102, faction: 'davion' },
+            { name: "Bora", x: 580, y: 116, faction: 'davion' },
+            { name: "Old Kentucky", x: 376, y: 25, faction: 'davion' },
+            { name: "Wazan", x: 398, y: 27, faction: 'davion' },
+            { name: "Quemoy", x: 606, y: 89, faction: 'davion' },
+            { name: "Sarmaxa", x: 657, y: 134, faction: 'davion' },
+            { name: "Sarna", x: 671, y: 90, faction: 'davion' },
+            { name: "Kaifeng", x: 768, y: 100, faction: 'davion' },
+            { name: "Truth", x: 805, y: 116, faction: 'davion' },
+            { name: "Tsingtao", x: 887, y: 91, faction: 'davion' },
+            { name: "Lee", x: 1028, y: 90, faction: 'davion' },
+            { name: "Cammal", x: 1000, y: 144, faction: 'davion' },
+            { name: "Gallitzin", x: 1090, y: 130, faction: 'davion' },
+            { name: "Monhegan", x: 1029, y: 253, faction: 'davion' },
+            { name: "Daniels", x: 1067, y: 319, faction: 'davion' },
+            { name: "Alcyone", x: 1097, y: 331, faction: 'davion' },
+            { name: "Shoreham", x: 1073, y: 447, faction: 'davion' },
+            { name: "Weekapaung", x: 974, y: 491, faction: 'davion' },
+            { name: "Scituate", x: 856, y: 459, faction: 'davion' },
+            { name: "Kittery", x: 831, y: 479, faction: 'davion' },
+            { name: "Gurnet", x: 888, y: 524, faction: 'davion' },
+            { name: "Mentasta", x: 1016, y: 559, faction: 'davion' },
+            { name: "Beid", x: 1071, y: 597, faction: 'davion' },
+            { name: "Ziliang", x: 743, y: 715, faction: 'davion' },
+            { name: "Uravan", x: 804, y: 712, faction: 'davion' },
+            { name: "Velhas", x: 750, y: 790, faction: 'davion' },
+            { name: "Immenstadt", x: 824, y: 783, faction: 'davion' },
+            { name: "Weatogue", x: 919, y: 786, faction: 'davion' },
+            
+            // Содружество Свободных Миров (фиолетовые)
+            { name: "Calloway IV", x: 15, y: 343, faction: 'freeWorlds' },
+            { name: "Les Halles", x: 120, y: 298, faction: 'freeWorlds' },
+            { name: "Anegasaki", x: 66, y: 441, faction: 'freeWorlds' },
+            { name: "Shuen Wan", x: 98, y: 465, faction: 'freeWorlds' },
+            { name: "Ipswich", x: 81, y: 535, faction: 'freeWorlds' },
+            { name: "Goodna", x: 182, y: 575, faction: 'freeWorlds' },
+            { name: "Iknogoro", x: 73, y: 623, faction: 'freeWorlds' },
+            { name: "Cronulla", x: 183, y: 640, faction: 'freeWorlds' },
+            { name: "Kujari", x: 201, y: 720, faction: 'freeWorlds' },
+            
+            // Сент-Ивское Объединение (бирюзовые)
+            { name: "Brighton", x: 810, y: 347, faction: 'stives' },
+            { name: "Nashuar", x: 911, y: 356, faction: 'stives' },
+            { name: "Armaxa", x: 958, y: 377, faction: 'stives' },
+            { name: "St. Ives", x: 949, y: 427, faction: 'stives' },
+            { name: "Taga", x: 866, y: 387, faction: 'stives' },
+            { name: "Vestallas", x: 739, y: 431, faction: 'stives' },
+            { name: "Milos", x: 686, y: 490, faction: 'stives' },
+            { name: "Denbar", x: 753, y: 548, faction: 'stives' },
+            { name: "Spica", x: 849, y: 557, faction: 'stives' },
+            { name: "St. Loris", x: 874, y: 587, faction: 'stives' },
+            { name: "Indicass", x: 766, y: 627, faction: 'stives' },
+            { name: "Maladar", x: 977, y: 620, faction: 'stives' },
+            { name: "Tantara", x: 933, y: 649, faction: 'stives' },
+            { name: "Ambergrist", x: 831, y: 677, faction: 'stives' },
+            { name: "Texlos", x: 988, y: 763, faction: 'stives' },
+            { name: "Warlock", x: 1039, y: 677, faction: 'stives' },
+            { name: "Tallin", x: 1039, y: 730, faction: 'stives' },
+            { name: "Teng", x: 1085, y: 759, faction: 'stives' },
+            
+            // Капелланская Конфедерация (зеленые)
+            { name: "Ingersol", x: 328, y: 184, faction: 'capellan' },
+            { name: "Bandora", x: 433, y: 214, faction: 'capellan' },
+            { name: "Capella", x: 573, y: 183, faction: 'capellan' },
+            { name: "No Return", x: 676, y: 214, faction: 'capellan' },
+            { name: "Randar", x: 706, y: 204, faction: 'capellan' },
+            { name: "Minnacora", x: 805, y: 177, faction: 'capellan' },
+            { name: "Ares", x: 902, y: 195, faction: 'capellan' },
+            { name: "Necromo", x: 916, y: 274, faction: 'capellan' },
+            { name: "Capricorn III", x: 850, y: 267, faction: 'capellan' },
+            { name: "New Sagan", x: 820, y: 216, faction: 'capellan' },
+            { name: "Relevow", x: 755, y: 278, faction: 'capellan' },
+            { name: "Aldertaine", x: 605, y: 294, faction: 'capellan' },
+            { name: "Geifer", x: 568, y: 266, faction: 'capellan' },
+            { name: "Cordiagr", x: 498, y: 294, faction: 'capellan' },
+            { name: "Masterson", x: 366, y: 264, faction: 'capellan' },
+            { name: "Propus", x: 291, y: 260, faction: 'capellan' },
+            { name: "Eom", x: 241, y: 297, faction: 'capellan' },
+            { name: "Boardwalk", x: 270, y: 331, faction: 'capellan' },
+            { name: "Kashilla", x: 346, y: 342, faction: 'capellan' },
+            { name: "Gei-fu", x: 682, y: 340, faction: 'capellan' },
+            { name: "Jasmine", x: 172, y: 358, faction: 'capellan' },
+            { name: "Kurragin", x: 370, y: 364, faction: 'capellan' },
+            { name: "Exedor", x: 275, y: 389, faction: 'capellan' },
+            { name: "Ovan", x: 531, y: 379, faction: 'capellan' },
+            { name: "Overton", x: 616, y: 391, faction: 'capellan' },
+            { name: "Calpaca", x: 233, y: 431, faction: 'capellan' },
+            { name: "Preston", x: 427, y: 425, faction: 'capellan' },
+            { name: "Glasgow", x: 516, y: 435, faction: 'capellan' },
+            { name: "Krin", x: 306, y: 467, faction: 'capellan' },
+            { name: "Pella II", x: 175, y: 501, faction: 'capellan' },
+            { name: "Harloc", x: 597, y: 486, faction: 'capellan' },
+            { name: "Sian", x: 392, y: 509, faction: 'capellan' },
+            { name: "Bentley", x: 302, y: 540, faction: 'capellan' },
+            { name: "Hexare", x: 529, y: 535, faction: 'capellan' },
+            { name: "Imalda", x: 524, y: 577, faction: 'capellan' },
+            { name: "New Westin", x: 570, y: 587, faction: 'capellan' },
+            { name: "Frondas", x: 251, y: 620, faction: 'capellan' },
+            { name: "Fronde", x: 321, y: 643, faction: 'capellan' },
+            { name: "Castrovia", x: 429, y: 648, faction: 'capellan' },
+            { name: "Decus", x: 610, y: 642, faction: 'capellan' },
+            { name: "Hustaing", x: 667, y: 609, faction: 'capellan' },
+            { name: "Purvo", x: 693, y: 684, faction: 'capellan' },
+            { name: "Altorra", x: 333, y: 710, faction: 'capellan' },
+            { name: "Claxton", x: 440, y: 715, faction: 'capellan' },
+            { name: "Carmen", x: 514, y: 715, faction: 'capellan' },
+            { name: "Sendalor", x: 604, y: 730, faction: 'capellan' },
+            { name: "Ito", x: 394, y: 780, faction: 'capellan' },
+            { name: "Housekarle", x: 542, y: 787, faction: 'capellan' }
+        ];
+        
+        // ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====
+        let allPlanetsData = [];
+        let d3Nodes = [];
+        let d3Links = [];
+        let selectedPlanet = null;
+        let d3LinksGroup = null;
+        let d3Svg = null;
+        let d3Opacity = 0.7;
+        let d3Thickness = 2.0;
+        let d3MaxDistance = 140;
+        
+        // ===== ПОЛЬЗОВАТЕЛИ =====
+        const defaultUsers = [
+            { id: 1, name: 'Мишкин Артём', rank: 'Командир Нова', faction: 'stives' },
+            { id: 2, name: 'Андрей Павлов', rank: 'Сао-Вей', faction: 'capellan' },
+            { id: 3, name: 'Жеребцов Михаил (Микка)', rank: 'Рядовой', faction: 'capellan' },
+            { id: 4, name: 'Макушкин Александр', rank: 'Шиа-Бей-Бинг', faction: 'capellan' },
+            { id: 5, name: 'Boris Leonov', rank: 'Командир Нова', faction: 'stives' },
+            { id: 6, name: 'Олег Пачев', rank: 'Звёздный Командир', faction: 'stives' },
+            { id: 7, name: 'Архан', rank: 'Адепт', faction: 'stives' },
+            { id: 8, name: 'Сергей Протасов', rank: 'Сао-Вей', faction: 'capellan' },
+            { id: 9, name: 'Леонид Черкасов', rank: 'Мехвоин', faction: 'stives' },
+            { id: 10, name: 'Amardil', rank: 'Рядовой', faction: 'stives' },
+            { id: 11, name: 'Tihiron Rrr (Данила)', rank: 'Рядовой', faction: 'capellan' },
+            { id: 12, name: 'Шестериков Александр', rank: 'Мехвоин', faction: 'stives' },
+            { id: 13, name: 'Шестерикова Таисия', rank: 'Шиа-Бей-Бинг', faction: 'capellan' },
+            { id: 14, name: 'Андрей Шумов', rank: 'Сержант', faction: 'stives' }
+        ];
+        
+        // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+        function scaleCoordinates(x, y) {
+            return {
+                x: Math.round((x) * scaleX),
+                y: Math.round((y) * scaleY)
+            };
+        }
+        
+        function getRandomMissions(count) {
+    const shuffled = [...allMissions].sort(() => Math.random() - 0.5);
+    const uniqueMissions = [];
+    const used = new Set();
+    
+    for (let i = 0; i < shuffled.length && uniqueMissions.length < count; i++) {
+        if (!used.has(shuffled[i])) {
+            uniqueMissions.push(shuffled[i]);
+            used.add(shuffled[i]);
+        }
+    }
+    
+    return uniqueMissions;
+}
+        
+        function isBorderPlanet(planet, allPlanets) {
+            let enemyFaction = '';
+            
+            if (planet.faction === 'stives') {
+                enemyFaction = 'capellan';
+            } else if (planet.faction === 'capellan') {
+                enemyFaction = 'stives';
+            } else {
+                return false;
+            }
+            
+            const BORDER_DISTANCE = 150;
+            
+            for (const otherPlanet of allPlanets) {
+                if (otherPlanet.faction !== enemyFaction) continue;
+                
+                const dx = planet.x - otherPlanet.x;
+                const dy = planet.y - otherPlanet.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance <= BORDER_DISTANCE) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        function isEncircledByEnemy(planet, allPlanets) {
+            if (planet.faction !== 'stives' && planet.faction !== 'capellan') return false;
+            
+            const enemyFaction = planet.faction === 'stives' ? 'capellan' : 'stives';
+            const ENCIRCLE_DISTANCE = 100;
+            
+            let enemyCount = 0;
+            
+            for (const otherPlanet of allPlanets) {
+                if (otherPlanet.faction !== enemyFaction) continue;
+                
+                const dx = planet.x - otherPlanet.x;
+                const dy = planet.y - otherPlanet.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance <= ENCIRCLE_DISTANCE) {
+                    enemyCount++;
+                    if (enemyCount >= 3) {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        function getMissionDescription(missionName) {
+            const descriptions = {
+                "Эвакуация груза": "Защита и сопровождение ценного груза до точки эвакуации.",
+                "Контроль поля битвы": "Удержание ключевых позиций на поле боя для получения преимущества.",
+                "Уничтожение противника": "Ликвидация всех вражеских сил в указанном районе.",
+                "Удержание позиции": "Защита стратегической позиции от вражеских атак.",
+                "Прорыв": "Пробивание вражеской обороны и выход на оперативный простор.",
+                "Поиск и уничтожение": "Обнаружение и нейтрализация вражеских целей.",
+                "Захват сброшенного груза": "Захват и доставка сброшенного с воздуха груза.",
+                "Эскорт": "Сопровождение и защита VIP-персоны или транспортного конвоя.",
+                "Удержание боевых точек": "Контроль над несколькими ключевыми точками на карте."
+            };
+            
+            return descriptions[missionName] || "Стандартная боевая операция.";
+        }
+        
+        // ===== ИНИЦИАЛИЗАЦИЯ ДАННЫХ ПЛАНЕТ =====
+        async function initializePlanetsData() {
+            console.log('🌐 Загрузка данных планет с сервера...');
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/state`);
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных: ' + response.status);
+                }
+                const data = await response.json();
+                
+                console.log('📊 Данные планет загружены с сервера:', data.planets.length);
+                
+                // Конвертируем данные сервера в формат frontend
+                allPlanetsData = data.planets.map(planet => {
+                    const scaled = scaleCoordinates(planet.x, planet.y);
+                    
+                    return {
+                        name: planet.name,
+                        x: scaled.x,
+                        y: scaled.y,
+                        originalX: planet.x,
+                        originalY: planet.y,
+                        faction: planet.faction,
+                        factionColor: planet.factionColor,
+                        factionName: planet.factionName,
+                        balance: planet.balance || 0,
+                        isNeutral: planet.isNeutral || (planet.faction !== 'stives' && planet.faction !== 'capellan'),
+                        maxBalance: 500,
+                        minBalance: 0,
+                        originalFaction: planet.originalFaction || planet.faction,
+                        currentFactionName: planet.currentFactionName || planet.factionName,
+                        missions: planet.missions || [],
+                        isBorderPlanet: planet.isBorderPlanet || false
+                    };
+                });
+                
+                console.log('✅ Данные планет инициализированы:', allPlanetsData.length);
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Ошибка загрузки данных планет:', error);
+                console.log('🔄 Используем локальную инициализацию...');
+                
+                // Резервная локальная инициализация
+                allPlanetsData = planets.map(planet => {
+                    const scaled = scaleCoordinates(planet.x, planet.y);
+                    const factionInfo = factionColors[planet.faction];
+                    
+                    const isBorder = isBorderPlanet({
+                        name: planet.name,
+                        x: planet.x,
+                        y: planet.y,
+                        faction: planet.faction
+                    }, planets);
+                    
+                    return {
+                        name: planet.name,
+                        x: scaled.x,
+                        y: scaled.y,
+                        originalX: planet.x,
+                        originalY: planet.y,
+                        faction: planet.faction,
+                        factionColor: factionInfo.strongColor,
+                        factionName: factionInfo.name,
+                        balance: 0,
+                        isNeutral: planet.faction !== 'stives',
+                        maxBalance: 500,
+                        minBalance: 0,
+                        originalFaction: planet.faction,
+                        currentFactionName: factionInfo.name,
+                        missions: [],
+                        isBorderPlanet: isBorder
+                    };
+                });
+
+                // Генерируем миссии для пограничных планет
+                allPlanetsData.forEach(planet => {
+                    if (planet.isBorderPlanet && (planet.faction === 'stives' || planet.faction === 'capellan')) {
+                        const missionNames = [];
+                        const availableMissions = [...allMissions];
+                        
+                        for (let i = 0; i < 3 && availableMissions.length > 0; i++) {
+                            const randomIndex = Math.floor(Math.random() * availableMissions.length);
+                            missionNames.push(availableMissions[randomIndex]);
+                            availableMissions.splice(randomIndex, 1);
+                        }
+                        
+                        planet.missions = missionNames.map(name => ({
+                            name: name,
+                            status: 'active'
+                        }));
+                    }
+                    
+                    planet.currentFactionName = factionColors[planet.faction].name;
+                });
+                
+                console.log('✅ Локальная инициализация планет завершена:', allPlanetsData.length);
+                return false;
+            }
+        }
+        
+        // ===== СОЗДАНИЕ ПЛАНЕТ НА КАРТЕ =====
+        function createPlanets() {
+            console.log('Создание планет на карте...');
+            const galaxyMap = document.getElementById('galaxy-map');
+            if (!galaxyMap) return;
+            
+            const existingPlanets = galaxyMap.querySelectorAll('.planet');
+            existingPlanets.forEach(el => el.remove());
+            
+            allPlanetsData.forEach((planet, index) => {
+                const planetElement = document.createElement('div');
+                planetElement.className = 'planet';
+                if (planet.missions && planet.missions.length > 0) {
+                    planetElement.classList.add('has-missions');
+                }
+                planetElement.dataset.index = index;
+                planetElement.title = planet.name;
+                
+                planetElement.style.color = planet.factionColor;
+                planetElement.style.left = `${planet.x}px`;
+                planetElement.style.top = `${planet.y}px`;
+                planetElement.style.display = 'block';
+                
+                const nameElement = document.createElement('div');
+                nameElement.className = 'planet-name';
+                
+                let nameHTML = `<strong>${planet.name}</strong><br>`;
+                nameHTML += `<small style="color: ${planet.factionColor}">${planet.currentFactionName}</small>`;
+                
+                if (planet.originalFaction !== planet.faction) {
+                    const originalFactionName = factionColors[planet.originalFaction].name;
+                    nameHTML += `<br><small style="color: #ffcc66; font-size: 0.7rem;">Изначально: ${originalFactionName}</small>`;
+                }
+                
+                if (planet.missions && planet.missions.length > 0) {
+                    nameHTML += `<div class="missions-tooltip">`;
+                    nameHTML += `<div style="margin-top: 8px; font-weight: bold; color: #ffcc66; font-size: 0.75rem; border-bottom: 1px solid #ffcc66; padding-bottom: 3px;">Доступные миссии:</div>`;
+                    planet.missions.forEach(mission => {
+                        const missionName = typeof mission === 'object' ? mission.name : mission;
+                        nameHTML += `<div class="mission-item">• ${missionName}</div>`;
+                    });
+                    nameHTML += `</div>`;
+                }
+                
+                nameElement.innerHTML = nameHTML;
+                
+                if (planet.y > MAP_HEIGHT - 100) {
+                    nameElement.classList.add('top');
+                }
+                
+                planetElement.appendChild(nameElement);
+                
+                planetElement.addEventListener('mouseenter', () => {
+                    showPlanetInfo(planet);
+                });
+                planetElement.addEventListener('click', () => {
+                    showPlanetInfo(planet);
+                });
+                
+                galaxyMap.appendChild(planetElement);
+            });
+            
+            console.log('Планеты созданы на карте');
+        }
+        
+        // ===== D3 ВИЗУАЛИЗАЦИЯ СВЯЗЕЙ =====
+        function initD3Visualization() {
+            console.log('Инициализация D3 визуализации...');
+            
+            try {
+                if (typeof d3 === 'undefined') {
+                    console.warn('D3 не загружен, откладываем инициализацию...');
+                    setTimeout(initD3Visualization, 2000);
+                    return;
+                }
+                
+                const container = document.getElementById('d3-map-container');
+                if (!container) return;
+                
+                container.innerHTML = '';
+                
+                d3Svg = d3.select('#d3-map-container')
+                    .append('svg')
+                    .attr('width', '100%')
+                    .attr('height', '100%')
+                    .attr('preserveAspectRatio', 'xMidYMid meet');
+                
+                const g = d3Svg.append('g');
+                d3LinksGroup = g.append('g').attr('class', 'links-group');
+                
+                d3Nodes = allPlanetsData.map((planet, index) => ({
+                    id: planet.name,
+                    name: planet.name,
+                    faction: planet.faction,
+                    x: planet.x,
+                    y: planet.y,
+                    fx: planet.x,
+                    fy: planet.y,
+                    radius: 8,
+                    originalIndex: index,
+                    hasMission: planet.missions && planet.missions.length > 0
+                }));
+                
+                createD3Links();
+                updateD3Links();
+                console.log('D3 визуализация инициализирована');
+                
+            } catch (error) {
+                console.error('Ошибка при инициализации D3 визуализации:', error);
+                setTimeout(function() {
+                    console.log('Повторная попытка инициализации D3...');
+                    initD3Visualization();
+                }, 3000);
+            }
+        }
+        
+        function createD3Links() {
+            console.log('Создание D3 связей...');
+            d3Links = [];
+            const factionNodes = {};
+            
+            d3Nodes.forEach(node => {
+                if (!factionNodes[node.faction]) {
+                    factionNodes[node.faction] = [];
+                }
+                factionNodes[node.faction].push(node);
+            });
+            
+            Object.entries(factionNodes).forEach(([faction, nodes]) => {
+                if (nodes.length < 2) return;
+                createEnhancedConnections(faction, nodes);
+            });
+        }
+        
+        function createEnhancedConnections(faction, nodes) {
+            const addedLinks = new Set();
+            
+            function linkKey(id1, id2) {
+                return [id1, id2].sort().join('|');
+            }
+            
+            if (faction === 'capellan') {
+                const distances = [];
+                for (let i = 0; i < nodes.length; i++) {
+                    distances[i] = [];
+                    for (let j = 0; j < nodes.length; j++) {
+                        if (i === j) {
+                            distances[i][j] = Infinity;
+                        } else {
+                            const dx = nodes[j].x - nodes[i].x;
+                            const dy = nodes[j].y - nodes[i].y;
+                            distances[i][j] = Math.sqrt(dx * dx + dy * dy);
+                        }
+                    }
+                }
+                
+                const mstEdges = [];
+                const visited = new Set([0]);
+                
+                while (visited.size < nodes.length) {
+                    let minEdge = null;
+                    let minDistance = Infinity;
+                    
+                    visited.forEach(i => {
+                        for (let j = 0; j < nodes.length; j++) {
+                            if (visited.has(j)) continue;
+                            
+                            if (distances[i][j] < minDistance) {
+                                minDistance = distances[i][j];
+                                minEdge = {
+                                    source: nodes[i].id,
+                                    target: nodes[j].id,
+                                    distance: distances[i][j]
+                                };
+                            }
+                        }
+                    });
+                    
+                    if (minEdge) {
+                        mstEdges.push(minEdge);
+                        const targetIndex = nodes.findIndex(n => n.id === minEdge.target);
+                        visited.add(targetIndex);
+                    }
+                }
+                
+                const allEdges = [...mstEdges];
+                const TARGET_LINKS_PER_NODE = 8;
+                const MAX_DISTANCE = d3MaxDistance * 1.5;
+                
+                for (let i = 0; i < nodes.length; i++) {
+                    const sortedDistances = distances[i]
+                        .map((dist, idx) => ({ idx, dist }))
+                        .filter(item => item.idx !== i)
+                        .sort((a, b) => a.dist - b.dist);
+                    
+                    const nearestNeighbors = sortedDistances
+                        .filter(item => item.dist < MAX_DISTANCE)
+                        .slice(0, TARGET_LINKS_PER_NODE * 2);
+                    
+                    nearestNeighbors.forEach(neighbor => {
+                        if (neighbor.idx > i) {
+                            allEdges.push({
+                                source: nodes[i].id,
+                                target: nodes[neighbor.idx].id,
+                                distance: neighbor.dist,
+                                isAdditional: true
+                            });
+                        }
+                    });
+                }
+                
+                if (nodes.length > 10) {
+                    const sortedByX = [...nodes].sort((a, b) => a.x - b.x);
+                    const sortedByY = [...nodes].sort((a, b) => a.y - b.y);
+                    
+                    for (let i = 0; i < sortedByX.length - 1; i++) {
+                        const dx = Math.abs(sortedByX[i + 1].x - sortedByX[i].x);
+                        const dy = Math.abs(sortedByX[i + 1].y - sortedByX[i].y);
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < d3MaxDistance * 2) {
+                            allEdges.push({
+                                source: sortedByX[i].id,
+                                target: sortedByX[i + 1].id,
+                                distance: distance,
+                                isAdditional: true,
+                                isGeometric: true
+                            });
+                        }
+                    }
+                    
+                    for (let i = 0; i < sortedByY.length - 1; i++) {
+                        const dx = Math.abs(sortedByY[i + 1].x - sortedByY[i].x);
+                        const dy = Math.abs(sortedByY[i + 1].y - sortedByY[i].y);
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 100) {
+                            allEdges.push({
+                                source: sortedByY[i].id,
+                                target: sortedByY[i + 1].id,
+                                distance: distance,
+                                isAdditional: true,
+                                isGeometric: true
+                            });
+                        }
+                    }
+                }
+                
+                const uniqueEdges = [];
+                const seen = new Set();
+                
+                allEdges.forEach(edge => {
+                    const key = linkKey(edge.source, edge.target);
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueEdges.push(edge);
+                    }
+                });
+                
+                uniqueEdges.sort((a, b) => a.distance - b.distance);
+                const maxLinks = Math.min(nodes.length * 6, 180);
+                const edgesToAdd = uniqueEdges.slice(0, maxLinks);
+                
+                edgesToAdd.forEach(edge => {
+                    const key = linkKey(edge.source, edge.target);
+                    if (!addedLinks.has(key)) {
+                        addedLinks.add(key);
+                        d3Links.push({
+                            source: edge.source,
+                            target: edge.target,
+                            faction: faction,
+                            distance: edge.distance,
+                            isAdditional: edge.isAdditional || false,
+                            isGeometric: edge.isGeometric || false
+                        });
+                    }
+                });
+                
+                return;
+            }
+            
+            const visited = new Set();
+            const mstEdges = [];
+            
+            if (nodes.length > 0) {
+                visited.add(nodes[0].id);
+                
+                while (visited.size < nodes.length) {
+                    let minEdge = null;
+                    let minDistance = Infinity;
+                    
+                    for (const visitedId of visited) {
+                        const visitedNode = nodes.find(n => n.id === visitedId);
+                        
+                        for (const otherNode of nodes) {
+                            if (visited.has(otherNode.id)) continue;
+                            
+                            const distance = Math.sqrt(
+                                Math.pow(otherNode.x - visitedNode.x, 2) + 
+                                Math.pow(otherNode.y - visitedNode.y, 2)
+                            );
+                            
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                minEdge = {
+                                    source: visitedNode.id,
+                                    target: otherNode.id,
+                                    distance: distance
+                                };
+                            }
+                        }
+                    }
+                    
+                    if (minEdge) {
+                        mstEdges.push(minEdge);
+                        visited.add(minEdge.target);
+                    }
+                }
+            }
+            
+            const additionalEdges = [];
+            
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const node1 = nodes[i];
+                    const node2 = nodes[j];
+                    const distance = Math.sqrt(
+                        Math.pow(node2.x - node1.x, 2) + 
+                        Math.pow(node2.y - node1.y, 2)
+                    );
+                    
+                    if (distance < d3MaxDistance) {
+                        additionalEdges.push({
+                            source: node1.id,
+                            target: node2.id,
+                            distance: distance,
+                            isAdditional: true
+                        });
+                    }
+                }
+            }
+            
+            const allEdges = [...mstEdges, ...additionalEdges];
+            allEdges.sort((a, b) => a.distance - b.distance);
+            
+            const maxLinksPerFaction = Math.min(nodes.length * 4, 100);
+            const edgesToAdd = allEdges.slice(0, maxLinksPerFaction);
+            
+            edgesToAdd.forEach(edge => {
+                const key = linkKey(edge.source, edge.target);
+                if (!addedLinks.has(key)) {
+                    addedLinks.add(key);
+                    d3Links.push({
+                        source: edge.source,
+                        target: edge.target,
+                        faction: faction,
+                        distance: edge.distance,
+                        isAdditional: edge.isAdditional || false
+                    });
+                }
+            });
+        }
+        
+        function updateD3Links() {
+            if (!d3LinksGroup || !d3Svg) return;
+            
+            d3LinksGroup.selectAll('line').remove();
+            
+            if (!showD3Links) return;
+            
+            const lines = d3LinksGroup.selectAll('line')
+                .data(d3Links)
+                .enter()
+                .append('line')
+                .attr('x1', d => {
+                    const sourceNode = d3Nodes.find(n => n.id === d.source);
+                    return sourceNode ? sourceNode.x : 0;
+                })
+                .attr('y1', d => {
+                    const sourceNode = d3Nodes.find(n => n.id === d.source);
+                    return sourceNode ? sourceNode.y : 0;
+                })
+                .attr('x2', d => {
+                    const targetNode = d3Nodes.find(n => n.id === d.target);
+                    return targetNode ? targetNode.x : 0;
+                })
+                .attr('y2', d => {
+                    const targetNode = d3Nodes.find(n => n.id === d.target);
+                    return targetNode ? targetNode.y : 0;
+                })
+                .attr('class', d => `d3-link ${d.faction}`)
+                .attr('stroke', d => {
+                    if (d.faction === 'capellan') {
+                        return d.isGeometric ? '#20ff20' : factionColors[d.faction].color;
+                    }
+                    return factionColors[d.faction].color;
+                })
+                .attr('stroke-opacity', d => {
+                    if (d.faction === 'capellan') {
+                        if (d.isGeometric) return 0.3;
+                        if (d.isAdditional) return 0.4;
+                        return 0.5;
+                    }
+                    return d.isAdditional ? d3Opacity * 0.5 : d3Opacity;
+                })
+                .attr('stroke-width', d => {
+                    if (d.faction === 'capellan') {
+                        if (d.isGeometric) return 0.8;
+                        return d.isAdditional ? 1.0 : 1.2;
+                    }
+                    return d.isAdditional ? d3Thickness * 0.75 : d3Thickness;
+                })
+                .attr('stroke-dasharray', d => {
+                    if (d.isGeometric) return "2,3";
+                    return "none";
+                });
+        }
+        
+        function getAttackerFaction(planetFaction) {
+            return (planetFaction === 'stives') ? 'capellan' : 'stives';
+        }
+
+        function generateUniqueMission(planet) {
+            const existingMissions = planet.missions.map(m => m.name);
+            const availableMissions = allMissions.filter(m => !existingMissions.includes(m));
+            
+            if (availableMissions.length === 0) {
+                return allMissions[Math.floor(Math.random() * allMissions.length)];
+            }
+            
+            return availableMissions[Math.floor(Math.random() * availableMissions.length)];
+        }
+        
+        // ===== ОБНОВЛЕНИЕ СТАТИСТИКИ ИГРОКОВ =====
+        function updatePlayerStats(userId, result, battleType, planetName, opponentId = null) {
+            if (!playerStats[userId]) {
+                playerStats[userId] = {
+                    victories: 0,
+                    defeats: 0,
+                    draws: 0,
+                    lastGame: null,
+                    lastActivity: new Date().toISOString(),
+                    totalGames: 0
+                };
+            }
+            
+            const stats = playerStats[userId];
+            stats.lastActivity = new Date().toISOString();
+            stats.totalGames++;
+            
+            if (result === 'SUCCESS') {
+                stats.victories++;
+            } else if (result === 'FAILURE') {
+                stats.defeats++;
+            } else if (result === 'DRAW') {
+                stats.draws++;
+            }
+            
+            stats.lastGame = {
+                date: new Date().toISOString(),
+                planet: planetName,
+                result: result,
+                battleType: battleType,
+                opponent: opponentId ? users.find(u => u.id === opponentId)?.name : null
+            };
+            
+            savePlayerStats();
+            updatePlayersDisplay();
+        }
+        
+        function updatePlayersDisplay() {
+            const tableBody = document.getElementById('players-table-body');
+            if (!tableBody) return;
+            
+            const validUsers = users.filter(user => 
+                user && user.id && user.name && user.name.trim() !== '' && user.faction
+            );
+            
+            const sortedUsers = [...validUsers].sort((a, b) => {
+                if (a.faction !== b.faction) {
+                    return a.faction === 'stives' ? -1 : 1;
+                }
+                const statsA = playerStats[a.id]?.lastActivity || '0';
+                const statsB = playerStats[b.id]?.lastActivity || '0';
+                return new Date(statsB) - new Date(statsA);
+            });
+            
+            let html = '';
+            
+            sortedUsers.forEach(user => {
+                if (!user || !user.name) return;
+                
+                const stats = playerStats[user.id] || {
+                    victories: 0,
+                    defeats: 0,
+                    contributedPoints: 0,
+                    lastGame: null,
+                    lastActivity: null,
+                    totalGames: 0
+                };
+                
+                const totalGames = stats.victories + stats.defeats + (stats.draws || 0);
+                const winRate = totalGames > 0 ? Math.round((stats.victories / totalGames) * 100) : 0;
+                
+                const lastGame = stats.lastGame;
+                const isActive = stats.lastActivity && 
+                    (new Date() - new Date(stats.lastActivity)) < 24 * 60 * 60 * 1000;
+                
+                let lastGameHtml = '<span style="color: #8888cc;">Нет данных</span>';
+                if (lastGame) {
+                    const date = new Date(lastGame.date).toLocaleString();
+                    const resultClass = lastGame.result === 'VICTORY' ? 'result-success' : 
+                                      lastGame.result === 'DEFEAT' ? 'result-failure' : 'result-draw';
+                    const resultText = lastGame.result === 'VICTORY' ? 'Победа' : 
+                                     lastGame.result === 'DEFEAT' ? 'Поражение' : 'Ничья';
+                    
+                    lastGameHtml = `
+                        <div>
+                            <span class="last-game-planet">${lastGame.planet || lastGame.mission || 'Не указано'}</span>
+                            <div class="last-game-result ${resultClass}">${resultText}</div>
+                            ${lastGame.points ? `<div style="font-size: 0.75rem; color: #ffcc66;">Очки: ${lastGame.points}</div>` : ''}
+                            <div style="font-size: 0.75rem; color: #8888cc;">${date}</div>
+                        </div>
+                    `;
+                }
+                
+                const factionInfo = factionColors[user.faction];
+                const factionName = factionInfo ? factionInfo.name : user.faction;
+                const factionClass = user.faction || 'neutral';
+                
+                html += `
+                    <tr class="${isActive ? 'player-active' : ''}">
+                        <td>
+                            <div class="player-name">${user.name}</div>
+                        </td>
+                        <td>
+                            <div class="player-faction ${factionClass}">${factionName}</div>
+                            <div class="player-rank">${user.rank || 'Без звания'}</div>
+                        </td>
+                        <td>
+                            <div class="player-stats">
+                                <div class="stat-badge victories">
+                                    <div class="stat-count">${stats.victories}</div>
+                                    <div class="stat-label-small">Побед</div>
+                                </div>
+                                <div class="stat-badge defeats">
+                                    <div class="stat-count">${stats.defeats}</div>
+                                    <div class="stat-label-small">Поражений</div>
+                                </div>
+                                <div class="stat-badge draws">
+                                    <div class="stat-count">${stats.contributedPoints || 0}</div>
+                                    <div class="stat-label-small">Очков</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 5px; font-size: 0.85rem; color: #aaaaff;">
+                                Игр: ${totalGames} | Побед: ${winRate}%
+                            </div>
+                        </td>
+                        <td class="last-game">
+                            ${lastGameHtml}
+                        </td>
+                        <td>
+                            ${isActive ? 
+                                '<span style="color: #66cc66;">● Активен</span>' : 
+                                '<span style="color: #8888cc;">○ Неактивен</span>'}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = html;
+            updateFactionStats();
+        }
+        
+        function updateFactionStats() {
+            let stivesVictories = 0, stivesDefeats = 0, stivesDraws = 0, stivesPlayers = 0;
+            let capellanVictories = 0, capellanDefeats = 0, capellanDraws = 0, capellanPlayers = 0;
+            
+            users.forEach(user => {
+                const stats = playerStats[user.id] || { victories: 0, defeats: 0, draws: 0 };
+                
+                if (user.faction === 'stives') {
+                    stivesPlayers++;
+                    stivesVictories += stats.victories;
+                    stivesDefeats += stats.defeats;
+                    stivesDraws += stats.draws;
+                } else if (user.faction === 'capellan') {
+                    capellanPlayers++;
+                    capellanVictories += stats.victories;
+                    capellanDefeats += stats.defeats;
+                    capellanDraws += stats.draws;
+                }
+            });
+            
+            const stivesTotal = stivesVictories + stivesDefeats + stivesDraws;
+            const capellanTotal = capellanVictories + capellanDefeats + capellanDraws;
+            const stivesRatio = stivesTotal > 0 ? Math.round((stivesVictories / stivesTotal) * 100) : 0;
+            const capellanRatio = capellanTotal > 0 ? Math.round((capellanVictories / capellanTotal) * 100) : 0;
+            
+            // Обновляем DOM элементы
+            const elements = {
+                'stives-players': stivesPlayers,
+                'stives-victories': stivesVictories,
+                'stives-defeats': stivesDefeats,
+                'stives-draws': stivesDraws,
+                'stives-ratio': stivesRatio + '%',
+                'capellan-players': capellanPlayers,
+                'capellan-victories': capellanVictories,
+                'capellan-defeats': capellanDefeats,
+                'capellan-draws': capellanDraws,
+                'capellan-ratio': capellanRatio + '%'
+            };
+            
+            Object.entries(elements).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value;
+            });
+            
+            const totalBattles = stivesTotal + capellanTotal;
+            document.getElementById('total-battles').textContent = totalBattles;
+            document.getElementById('total-battles-count').textContent = totalBattles;
+            
+            const activePlayers = users.filter(user => {
+                const stats = playerStats[user.id];
+                return stats && stats.lastActivity && 
+                    (new Date() - new Date(stats.lastActivity)) < 24 * 60 * 60 * 1000;
+            }).length;
+            document.getElementById('active-players').textContent = activePlayers;
+        }
+        
+        // ===== СИСТЕМА ВОЕННЫХ ХРОНИК =====
+        function addWarRecord(record) {
+            const user = users.find(u => u.id === record.userId) || users[0];
+            
+            const fullRecord = {
+                id: Date.now() + Math.random().toString(36).substr(2, 9),
+                timestamp: new Date().toISOString(),
+                type: record.type,
+                planetName: record.planetName,
+                userId: record.userId,
+                userName: user.name,
+                userRank: user.rank,
+                userFaction: user.faction,
+                details: record.details
+            };
+            
+            warChronicles.unshift(fullRecord);
+            
+            if (warChronicles.length > 500) {
+                warChronicles = warChronicles.slice(0, 500);
+            }
+            
+            saveWarChronicles();
+            
+            if (selectedPlanet && selectedPlanet.name === record.planetName) {
+                showPlanetInfo(selectedPlanet);
+            }
+            
+            return fullRecord;
+        }
+        
+        function getPlanetHistory(planetName, limit = 10) {
+            return warChronicles
+                .filter(record => record.planetName === planetName)
+                .slice(0, limit);
+        }
+        
+        function updateRecentChronics() {
+            if (!showChronics) return;
+            
+            const list = document.getElementById('chronics-list');
+            if (!list) return;
+            
+            const recent = warChronicles.slice(0, 5);
+            
+            if (recent.length === 0) {
+                list.innerHTML = '<p style="color: #8888cc; text-align: center;">Нет записей в хрониках</p>';
+                return;
+            }
+            
+            list.innerHTML = recent.map(record => {
+                const date = new Date(record.timestamp).toLocaleString();
+                let details = '';
+                
+                if (record.type === 'CHANGE_FACTION') {
+                    const oldFaction = record.details.oldFaction;
+                    const newFaction = record.details.newFaction;
+                    details = `Фракция изменена: ${factionColors[oldFaction]?.name || oldFaction} → ${factionColors[newFaction]?.name || newFaction}`;
+                    if (record.details.reason) {
+                        details += `<br><small>Причина: ${record.details.reason}</small>`;
+                    }
+                } else if (record.type === 'MISSION_COMPLETE') {
+                    details = `Миссия: ${record.details.missionName || 'Неизвестно'}<br>`;
+                    
+                    if (record.details.winningFaction) {
+                        const winningFactionName = factionColors[record.details.winningFaction]?.name || record.details.winningFaction;
+                        details += `Победитель: <span style="color: ${factionColors[record.details.winningFaction]?.strongColor || '#ffffff'}">${winningFactionName}</span><br>`;
+                    }
+                    
+                    if (record.details.points !== undefined) {
+                        details += `Очки: <span style="color: ${record.details.points > 0 ? '#66cc66' : '#ff6666'}">${record.details.points > 0 ? '+' : ''}${record.details.points}</span><br>`;
+                    }
+                    
+                    if (record.details.description) {
+                        details += `<br><small>${record.details.description}</small>`;
+                    }
+                } else if (record.type === 'BATTLE') {
+                    details = `Сражение: ${record.details.battleType || 'Неизвестный тип'}<br>`;
+                    details += `Противник: ${record.details.opponentName || 'Неизвестно'}<br>`;
+                    
+                    if (record.details.result) {
+                        const resultColors = {
+                            'SUCCESS': '#66cc66',
+                            'FAILURE': '#ff6666',
+                            'DRAW': '#8888cc'
+                        };
+                        details += `Результат: <span style="color: ${resultColors[record.details.result] || '#ffffff'}">${record.details.result}</span>`;
+                    }
+                }
+                
+                const userClass = `user-${record.userFaction}`;
+                
+                return `
+                    <div class="chronic-item chronic-type-${record.type === 'CHANGE_FACTION' ? 'faction' : 'mission'}">
+                        <div class="chronic-header">
+                            <div class="chronic-user">
+                                <span class="user-badge ${userClass}">${record.userRank} ${record.userName}</span>
+                            </div>
+                            <div class="chronic-date">${date}</div>
+                        </div>
+                        <div><strong>${record.planetName}</strong> - ${record.type === 'CHANGE_FACTION' ? 'Смена фракции' : 'Миссия'}</div>
+                        <div class="chronic-details">${details}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // ===== ОТОБРАЖЕНИЕ ИНФОРМАЦИИ О ПЛАНЕТЕ =====
+        function showPlanetInfo(planet) {
+            selectedPlanet = planet;
+            
+            const factionInfo = factionColors[planet.faction];
+            const history = getPlanetHistory(planet.name, 5);
+            const attackerFaction = getAttackerFaction(planet.faction);
+            const attackerColor = factionColors[attackerFaction].strongColor;
+            const progressPercent = (planet.balance / 500) * 100;
+            
+            const placeholder = document.getElementById('info-placeholder');
+            const detailsContainer = document.getElementById('planet-details');
+            
+            if (placeholder) placeholder.style.display = 'none';
+            if (detailsContainer) {
+                detailsContainer.classList.add('active');
+                detailsContainer.innerHTML = `
+                    <div class="details-header">
+                        <h2 class="details-title">${planet.name}</h2>
+                        <div class="faction-indicator ${factionInfo.class}">${planet.currentFactionName}</div>
+                    </div>
+                    
+                    ${planet.faction === 'stives' || planet.faction === 'capellan' ? `
+                        <!-- Прогресс-бар перевеса -->
+                        <div style="margin: 20px 0; padding: 20px; background: rgba(30,40,70,0.7); border-radius: 10px; border: 1px solid ${planet.factionColor};">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                <span style="color: ${planet.factionColor}; font-weight: bold;">
+                                    🛡️ Защита ${planet.currentFactionName}
+                                </span>
+                                <span style="color: #ffcc66; font-weight: bold; font-size: 1.2rem;">
+                                    ${planet.balance}/500
+                                </span>
+                                <span style="color: ${attackerColor}; font-weight: bold;">
+                                    ⚔️ Наступление ${factionColors[attackerFaction].name}
+                                </span>
+                            </div>
+                            
+                            <div style="width: 100%; height: 25px; background: rgba(0,0,0,0.3); border-radius: 12px; overflow: hidden; position: relative; margin: 10px 0;">
+                                <div style="width: ${progressPercent}%; height: 100%; 
+                                    background: linear-gradient(90deg, ${attackerColor} 0%, ${planet.factionColor} 100%); 
+                                    transition: width 0.5s ease;">
+                                </div>
+                                <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 100%; 
+                                    background: rgba(255,255,255,0.5);"></div>
+                            </div>
+                            
+                            <div style="text-align: center; margin-top: 10px;">
+                                ${planet.balance >= 450 ? 
+                                    '<span style="color: #ff6666; font-weight: bold;">⚠️ КРИТИЧЕСКИЙ ПЕРЕВЕС! Захват неизбежен!</span>' : 
+                                  planet.balance >= 350 ? 
+                                    '<span style="color: #ff9966; font-weight: bold;">⚠️ Высокий перевес в пользу атакующих</span>' :
+                                  planet.balance >= 200 ? 
+                                    '<span style="color: #ffcc66; font-weight: bold;">⚠️ Умеренный перевес</span>' :
+                                  planet.balance >= 100 ? 
+                                    '<span style="color: #ffff66; font-weight: bold;">⚠️ Небольшой перевес</span>' :
+                                    '<span style="color: #66cc66; font-weight: bold;">✅ Стабильная оборона</span>'}
+                            </div>
+                        </div>
+                    ` : `
+                        <!-- Для нейтральных планет -->
+                        <div style="margin: 20px 0; padding: 20px; background: rgba(50,50,80,0.7); border-radius: 10px; border: 1px solid #8888cc;">
+                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                                <span style="font-size: 2rem;">⚪</span>
+                                <div>
+                                    <h3 style="color: #8888cc; margin-bottom: 5px;">Нейтральная система</h3>
+                                    <p style="color: #aaaaff; font-size: 0.9rem;">
+                                        Планета принадлежит ${planet.currentFactionName}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `}
+                    
+                    <!-- Доступные миссии -->
+                    ${planet.missions && planet.missions.length > 0 && (planet.faction === 'stives' || planet.faction === 'capellan') ? `   
+                        <div class="missions-container">
+                            <div class="missions-title">
+                                📋 Доступные миссии
+                                <span class="border-status ${planet.isBorderPlanet ? '' : 'safe'}">
+                                    ${planet.isBorderPlanet ? 'Граничная система' : 'Внутренняя система'}
+                                </span>
+                            </div>
+                            ${planet.missions.map((mission, index) => `
+                                <div class="mission">
+                                    <h4>Миссия ${index + 1}: ${mission.name || mission}</h4>
+                                    <p>${getMissionDescription(mission.name || mission)}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <!-- История операций -->
+                    <div class="chronics-container" style="margin-top: 20px;">
+                        <div class="missions-title">
+                            📜 История операций
+                            <span style="font-size: 0.9rem; color: #aaaaff;">
+                                (${history.length} из ${getPlanetHistory(planet.name).length})
+                            </span>
+                        </div>
+                        ${history.length > 0 ? history.map(record => {
+                            const date = new Date(record.timestamp).toLocaleString();
+                            let details = '';
+                            let resultColor = '#ffffff';
+                            
+                            if (record.type === 'CHANGE_FACTION') {
+                                details = `Фракция: ${record.details.oldFactionName} → ${record.details.newFactionName}`;
+                                if (record.details.reason) {
+                                    details += `<br><small>Причина: ${record.details.reason}</small>`;
+                                }
+                                resultColor = factionColors[record.details.newFaction].strongColor;
+                            } else if (record.type === 'MISSION_COMPLETE') {
+                                if (record.details.winningFaction) {
+                                    const winningFactionName = factionColors[record.details.winningFaction]?.name || record.details.winningFaction;
+                                    details = `Миссия: ${record.details.missionName}<br>`;
+                                    details += `Очки перевеса: <span style="color: ${record.details.points > 0 ? '#66cc66' : '#ff6666'}">${record.details.points > 0 ? '+' : ''}${record.details.points || 0}</span><br>`;
+                                    details += `Победитель: <span style="color: ${factionColors[record.details.winningFaction]?.strongColor || '#ffffff'}">${winningFactionName}</span>`;
+                                    if (record.details.description) {
+                                        details += `<br><small>${record.details.description}</small>`;
+                                    }
+                                    resultColor = factionColors[record.details.winningFaction]?.strongColor || '#ffffff';
+                                } else {
+                                    details = `Миссия: ${record.details.missionName}, Результат: ${record.details.result}`;
+                                    resultColor = record.details.resultColor || '#ffffff';
+                                }
+                            }
+                            
+                            const userClass = `user-${record.userFaction}`;
+                            
+                            return `
+                                <div class="chronic-item" style="border-left-color: ${resultColor};">
+                                    <div class="chronic-header">
+                                        <div class="chronic-user">
+                                            <span class="user-badge ${userClass}">${record.userRank} ${record.userName}</span>
+                                        </div>
+                                        <div class="chronic-date">${date}</div>
+                                    </div>
+                                    <div><strong>${record.planetName}</strong> - ${record.type === 'CHANGE_FACTION' ? 'Смена фракции' : 'Миссия'}</div>
+                                    <div class="chronic-details">${details}</div>
+                                </div>
+                            `;
+                        }).join('') : 
+                        '<p style="color: #8888cc; text-align: center; padding: 20px;">Нет записей об операциях на этой планете</p>'}
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadGameDataFromServer() {
+            try {
+                console.log('🌐 Загрузка данных с сервера...');
+                const response = await fetch(`${baseUrl}/api/state`);
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных: ' + response.status);
+                }
+                const data = await response.json();
+                
+                // Обновляем пользователей с сервера
+                if (data.players && Array.isArray(data.players)) {
+                    const serverUsers = data.players.map(player => ({
+                        id: player.ID || player.id || 0,
+                        name: (player.Name || player.name || 'Без имени').trim(),
+                        rank: (player.Rank || player.rank || 'Без звания').replace(/\t/g, ' ').trim(),
+                        faction: player.Faction || player.faction || 'neutral'
+                    })).filter(player => player.name && player.name.trim() !== '');
+                    
+                    if (serverUsers.length > 0) {
+                        users = serverUsers;
+                        saveUsers();
+                        
+                        // Добавляем недостающих пользователей в статистику
+                        serverUsers.forEach(user => {
+                            if (!playerStats[user.id]) {
+                                playerStats[user.id] = {
+                                    victories: 0,
+                                    defeats: 0,
+                                    draws: 0,
+                                    contributedPoints: 0,
+                                    lastGame: null,
+                                    lastActivity: null,
+                                    totalGames: 0
+                                };
+                            }
+                        });
+                        savePlayerStats();
+                    }
+                }
+                
+                // Обновляем статистику с сервера
+                if (data.playerStats) {
+                    for (const [playerIdStr, playerStat] of Object.entries(data.playerStats)) {
+                        const playerId = parseInt(playerIdStr);
+                        if (!isNaN(playerId)) {
+                            if (!playerStats[playerId]) {
+                                playerStats[playerId] = {
+                                    victories: 0,
+                                    defeats: 0,
+                                    draws: 0,
+                                    contributedPoints: 0,
+                                    lastGame: null,
+                                    lastActivity: null,
+                                    totalGames: 0
+                                };
+                            }
+                            
+                            playerStats[playerId].victories = playerStat.Victories || 0;
+                            playerStats[playerId].defeats = playerStat.Defeats || 0;
+                            playerStats[playerId].draws = playerStat.Draws || 0;
+                            playerStats[playerId].totalGames = playerStat.TotalGames || 0;
+                            
+                            if (playerStat.LastActivity) {
+                                playerStats[playerId].lastActivity = new Date(playerStat.LastActivity).toISOString();
+                            }
+                            
+                            if (playerStat.LastGame) {
+                                playerStats[playerId].lastGame = {
+                                    date: playerStat.LastGame.Date ? new Date(playerStat.LastGame.Date).toISOString() : null,
+                                    planet: playerStat.LastGame.Planet || null,
+                                    result: playerStat.LastGame.Result || null,
+                                    points: playerStat.LastGame.Points || 0,
+                                    mission: playerStat.LastGame.Mission || null
+                                };
+                            }
+                        }
+                    }
+                    savePlayerStats();
+                }
+                
+                // Обновляем отображение
+                updatePlayersDisplay();
+                updateUsersCount();
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Ошибка загрузки данных с сервера:', error);
+                return false;
+            }
+        }
+        
+        // ===== КОНСОЛЬНЫЕ КОМАНДЫ =====
+        window.alphaStrike = {
+            completeMission: function(planetName, missionIndex, participants, points, winningFaction, description) {
+                const planet = allPlanetsData.find(p => p.name === planetName);
+                
+                if (!planet) {
+                    console.error('❌ Планета не найдена');
+                    return null;
+                }
+                
+                if (!planet.missions || planet.missions.length <= missionIndex) {
+                    console.error('❌ Миссия не найдена');
+                    return null;
+                }
+                
+                if (!['stives', 'capellan'].includes(winningFaction)) {
+                    console.error('❌ Победитель должен быть St. Ives или Capellan');
+                    return null;
+                }
+
+                if (points <= 0) {
+                    console.error('❌ Количество очков должно быть положительным числом');
+                    return null;
+                }
+                
+                const completedMission = planet.missions.splice(missionIndex, 1)[0];
+                
+                // Обновляем перевес планеты
+                const oldBalance = planet.balance;
+                const attackerFaction = getAttackerFaction(planet.faction);
+                
+                if (winningFaction === planet.faction) {
+                    // Домашняя фракция выиграла - уменьшаем перевес
+                    planet.balance = Math.max(0, oldBalance - points);
+                    console.log(`➖ Домашняя фракция ${planet.faction} выиграла: перевес ${oldBalance} → ${planet.balance}`);
+                } else if (winningFaction === attackerFaction) {
+                    // Вторженцы выиграли - увеличиваем перевес
+                    planet.balance = Math.min(500, oldBalance + points);
+                    console.log(`➕ Вторженцы ${attackerFaction} выиграли: перевес ${oldBalance} → ${planet.balance}`);
+                    
+                    // Проверяем захват
+                    if (planet.balance >= 500) {
+                        console.log(`🎯 Захват планеты ${planet.name}!`);
+                        this.changeFaction(planet.name, attackerFaction, `Захват при достижении перевеса ${points} очков`);
+                        planet.balance = 0;
+                    }
+                }
+                
+                // Добавляем новую уникальную миссию
+                if (planet.isBorderPlanet && planet.missions.length < 3) {
+                    const newMissionName = generateUniqueMission(planet);
+                    planet.missions.push({
+                        name: newMissionName,
+                        status: 'active'
+                    });
+                }
+                
+                // Обновляем статистику участников
+                participants.forEach(participant => {
+                    const playerId = typeof participant === 'object' ? participant.id : participant;
+                    const playerFaction = typeof participant === 'object' ? participant.faction : 
+                                        users.find(u => u.id === participant)?.faction;
+                    
+                    if (!playerStats[playerId]) {
+                        playerStats[playerId] = {
+                            victories: 0,
+                            defeats: 0,
+                            totalPoints: 0,
+                            contributedPoints: 0,
+                            lastGame: null,
+                            lastActivity: new Date().toISOString(),
+                            totalGames: 0
+                        };
+                    }
+                    
+                    const stats = playerStats[playerId];
+                    stats.totalGames++;
+                    stats.lastActivity = new Date().toISOString();
+                    
+                    if (playerFaction === winningFaction) {
+                        stats.victories++;
+                        stats.totalPoints += points;
+                        stats.contributedPoints += points;
+                    } else {
+                        stats.defeats++;
+                    }
+                    
+                    stats.lastGame = {
+                        date: new Date().toISOString(),
+                        mission: completedMission.name,
+                        points: points,
+                        result: playerFaction === winningFaction ? 'VICTORY' : 'DEFEAT',
+                        faction: playerFaction,
+                        winningFaction: winningFaction
+                    };
+                });
+                
+                savePlayerStats();
+                updatePlayersDisplay();
+                
+                // Записываем в хронику
+                const chronicRecord = addWarRecord({
+                    type: 'MISSION_COMPLETE',
+                    planetName: planetName,
+                    userId: participants[0]?.id || 0,
+                    details: {
+                        missionName: completedMission.name,
+                        participants: participants,
+                        points: points,
+                        winningFaction: winningFaction,
+                        description: description,
+                        balanceChange: winningFaction === getAttackerFaction(planet.faction) ? points : -points,
+                        newBalance: planet.balance
+                    }
+                });
+                
+                // Обновляем отображение
+                createPlanets();
+                initD3Visualization();
+                drawEncircledPlanets();
+                
+                if (selectedPlanet && selectedPlanet.name === planetName) {
+                    showPlanetInfo(planet);
+                }
+                
+                console.log(`✅ Миссия выполнена: ${completedMission.name}`);
+                console.log(`📊 Новый перевес на ${planet.name}: ${planet.balance}/500`);
+                
+                return chronicRecord;
+            },
+            
+            changeFaction: function(planetName, newFaction, reason = 'Военная операция') {
+                const planet = allPlanetsData.find(p => p.name === planetName);
+                
+                if (!planet) {
+                    console.error('❌ Планета не найдена:', planetName);
+                    return null;
+                }
+                
+                const oldFaction = planet.faction;
+                
+                if (oldFaction === newFaction) {
+                    console.log('ℹ️ Планета уже принадлежит этой фракции');
+                    return null;
+                }
+                
+                planet.faction = newFaction;
+                planet.factionColor = factionColors[newFaction].strongColor;
+                planet.factionName = factionColors[newFaction].name;
+                planet.currentFactionName = factionColors[newFaction].name;
+                planet.isNeutral = !(newFaction === 'stives' || newFaction === 'capellan');
+                planet.balance = 0;
+                
+                // Проверяем пограничный статус
+                if (isBorderPlanet(planet, allPlanetsData)) {
+                    planet.isBorderPlanet = true;
+                    planet.missions = [];
+                    for (let i = 0; i < 3; i++) {
+                        planet.missions.push({
+                            name: generateUniqueMission(planet),
+                            status: 'active'
+                        });
+                    }
+                } else {
+                    planet.isBorderPlanet = false;
+                    planet.missions = [];
+                }
+                
+                const chronicRecord = addWarRecord({
+                    type: 'CHANGE_FACTION',
+                    planetName: planetName,
+                    userId: 0,
+                    details: {
+                        oldFaction: oldFaction,
+                        newFaction: newFaction,
+                        oldFactionName: factionColors[oldFaction].name,
+                        newFactionName: factionColors[newFaction].name,
+                        reason: reason
+                    }
+                });
+                
+                createPlanets();
+                initD3Visualization();
+                drawEncircledPlanets();
+                updateStatusInfo();
+                
+                if (selectedPlanet && selectedPlanet.name === planetName) {
+                    showPlanetInfo(planet);
+                }
+                
+                console.log(`✅ Фракция планеты ${planetName} изменена: ${factionColors[oldFaction].name} → ${factionColors[newFaction].name}`);
+                return chronicRecord;
+            },
+            
+            getPlanetInfo: function(planetName) {
+                const planet = allPlanetsData.find(p => p.name === planetName);
+                if (planet) {
+                    const history = getPlanetHistory(planetName);
+                    console.log('📋 Информация о планете:', {
+                        название: planet.name,
+                        фракция: planet.currentFactionName,
+                        перевес: planet.balance,
+                        миссий: planet.missions?.length || 0,
+                        история: history.length + ' записей'
+                    });
+                } else {
+                    console.error('❌ Планета не найдена');
+                }
+                return planet;
+            },
+            
+            getWarChronicles: function(options = {}) {
+                let filtered = [...warChronicles];
+                
+                if (options.planetName) {
+                    filtered = filtered.filter(r => r.planetName === options.planetName);
+                }
+                if (options.userId) {
+                    filtered = filtered.filter(r => r.userId === options.userId);
+                }
+                if (options.type) {
+                    filtered = filtered.filter(r => r.type === options.type);
+                }
+                
+                console.log(`📚 Военные хроники: ${filtered.length} записей`);
+                return filtered;
+            },
+            
+            getStats: function() {
+                const stats = {
+                    всего_планет: allPlanetsData.length,
+                    планет_по_фракциям: {},
+                    доступных_миссий: allPlanetsData.reduce((sum, p) => sum + (p.missions ? p.missions.length : 0), 0),
+                    записей_в_хрониках: warChronicles.length,
+                    записей_по_типам: {},
+                    пользователей: users.length,
+                    статистика_игроков: {}
+                };
+                
+                allPlanetsData.forEach(p => {
+                    stats.планет_по_фракциям[p.faction] = (stats.планет_по_фракциям[p.faction] || 0) + 1;
+                });
+                
+                warChronicles.forEach(r => {
+                    stats.записей_по_типам[r.type] = (stats.записей_по_типам[r.type] || 0) + 1;
+                });
+                
+                users.forEach(user => {
+                    const userStats = playerStats[user.id] || { victories: 0, defeats: 0, draws: 0 };
+                    stats.статистика_игроков[user.name] = userStats;
+                });
+                
+                console.table(stats);
+                return stats;
+            },
+            
+            getUsers: function() {
+                console.table(users.map(user => {
+                    const stats = playerStats[user.id] || { victories: 0, defeats: 0, draws: 0 };
+                    return {
+                        ID: user.id,
+                        Имя: user.name,
+                        Фракция: factionColors[user.faction].name,
+                        Звание: user.rank,
+                        Победы: stats.victories,
+                        Поражения: stats.defeats,
+                        Ничьи: stats.draws,
+                        Активность: stats.lastActivity ? new Date(stats.lastActivity).toLocaleString() : 'Нет'
+                    };
+                }));
+                return users;
+            },
+            
+            debugPlanets: function() {
+                console.log('=== ДЕБАГ ПЛАНЕТ ===');
+                
+                const factions = ['stives', 'capellan'];
+                
+                factions.forEach(faction => {
+                    console.log(`\n🔍 Фракция: ${factionColors[faction].name}`);
+                    
+                    const factionPlanets = allPlanetsData.filter(p => p.faction === faction);
+                    console.log(`Всего планет: ${factionPlanets.length}`);
+                    
+                    const borderPlanets = factionPlanets.filter(p => p.isBorderPlanet);
+                    console.log(`Пограничных планет: ${borderPlanets.length}`);
+                    
+                    const planetsWithMissions = factionPlanets.filter(p => p.missions.length > 0);
+                    console.log(`Планет с миссиями: ${planetsWithMissions.length}`);
+                    
+                    factionPlanets.forEach(planet => {
+                        console.log(`  ${planet.name}: граница=${planet.isBorderPlanet}, миссий=${planet.missions.length}`);
+                    });
+                });
+                
+                return allPlanetsData;
+            },
+            
+            fixCapellanMissions: function() {
+                console.log('⚙️ Исправление миссий для планет Capellan...');
+                
+                allPlanetsData.forEach(planet => {
+                    if (planet.faction === 'capellan' && planet.isBorderPlanet && planet.missions.length === 0) {
+                        console.log(`Добавляем миссии для планеты ${planet.name}`);
+                        
+                        const missionNames = [];
+                        const availableMissions = [...allMissions];
+                        
+                        for (let i = 0; i < 3 && availableMissions.length > 0; i++) {
+                            const randomIndex = Math.floor(Math.random() * availableMissions.length);
+                            missionNames.push(availableMissions[randomIndex]);
+                            availableMissions.splice(randomIndex, 1);
+                        }
+                        
+                        planet.missions = missionNames.map(name => ({
+                            name: name,
+                            status: 'active'
+                        }));
+                    }
+                });
+                
+                createPlanets();
+                console.log('✅ Миссии исправлены. Обновите карту.');
+                
+                this.debugPlanets();
+            },
+            changePlayerRank: function(playerId, newRank) {
+    const user = users.find(u => u.id === playerId);
+    if (!user) {
+        console.error('❌ Игрок не найден');
+        return null;
+    }
+    
+    const oldRank = user.rank;
+    user.rank = newRank;
+    saveUsers();
+    
+    // Добавляем запись в хронику
+    const chronicRecord = addWarRecord({
+        type: 'CHANGE_RANK',
+        planetName: 'Система',
+        userId: playerId,
+        details: {
+            playerName: user.name,
+            oldRank: oldRank,
+            newRank: newRank
+        }
+    });
+    
+    console.log(`✅ Звание игрока ${user.name} изменено: ${oldRank} → ${newRank}`);
+    updatePlayersDisplay();
+    return chronicRecord;
+}
+        };
+        
+        // ===== ОКРУЖЕННЫЕ ПЛАНЕТЫ =====
+        function drawEncircledPlanets() {
+            const galaxyMap = document.getElementById('galaxy-map');
+            if (!galaxyMap) return;
+            
+            document.querySelectorAll('.encirclement-indicator').forEach(el => el.remove());
+            
+            if (!showEncircled) return;
+            
+            allPlanetsData.forEach((planet, index) => {
+                if (isEncircledByEnemy(planet, allPlanetsData)) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'encirclement-indicator';
+                    indicator.style.left = `${planet.x}px`;
+                    indicator.style.top = `${planet.y}px`;
+                    indicator.title = `⚠️ ${planet.name} окружена вражескими системами`;
+                    indicator.dataset.index = index;
+                    
+                    indicator.addEventListener('click', () => {
+                        showPlanetInfo(planet);
+                    });
+                    
+                    galaxyMap.appendChild(indicator);
+                }
+            });
+        }
+        
+        // ===== ОБНОВЛЕНИЕ СТАТУСА =====
+        function updateStatusInfo() {
+            const statusEl = document.getElementById('territory-status');
+            if (statusEl) {
+                const planetsWithMissions = allPlanetsData.filter(p => p.missions && p.missions.length > 0);
+                const encircledPlanets = allPlanetsData.filter(p => isEncircledByEnemy(p, allPlanetsData));
+                const totalBattles = Object.values(playerStats).reduce((sum, stats) => sum + (stats.totalGames || 0), 0);
+                
+                statusEl.innerHTML = `
+                    <strong>Статус системы:</strong><br>
+                    • Планет: ${allPlanetsData.length}<br>
+                    • С миссиями: ${planetsWithMissions.length}<br>
+                    • Окружено: ${encircledPlanets.length}<br>
+                    • Хроники: ${warChronicles.length} записей<br>
+                    • Игроков: ${users.length}<br>
+                    • Сражений: ${totalBattles}<br>
+                    • Для управления используйте консоль (F12)
+                `;
+            }
+        }
+        
+        // ===== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ =====
+        function initUsers() {
+            const saved = localStorage.getItem(USERS_KEY);
+            if (saved) {
+                try {
+                    users = JSON.parse(saved);
+                    
+                    // Проверяем, что у всех пользователей есть имена
+                    users = users.filter(user => user && user.name && user.name.trim() !== '');
+                    
+                    // Если после фильтрации мало пользователей, используем дефолтных
+                    if (users.length < defaultUsers.length) {
+                        console.log('⚠️ В localStorage недостаточно пользователей, используем дефолтных');
+                        users = [...defaultUsers];
+                        saveUsers();
+                    }
+                    
+                    updateUsersCount();
+                } catch (e) {
+                    console.error('❌ Ошибка загрузки пользователей:', e);
+                    users = [...defaultUsers];
+                    saveUsers();
+                }
+            } else {
+                users = [...defaultUsers];
+                saveUsers();
+            }
+        }
+        
+        function saveUsers() {
+            try {
+                localStorage.setItem(USERS_KEY, JSON.stringify(users));
+                updateUsersCount();
+            } catch (e) {
+                console.error('❌ Ошибка сохранения пользователей:', e);
+            }
+        }
+        
+        function updateUsersCount() {
+            const countEl = document.getElementById('users-count');
+            if (countEl) {
+                countEl.textContent = users.length;
+            }
+        }
+        
+        // ===== СИСТЕМА СТАТИСТИКИ ИГРОКОВ =====
+        function initPlayerStats() {
+            const saved = localStorage.getItem(PLAYER_STATS_KEY);
+            if (saved) {
+                try {
+                    playerStats = JSON.parse(saved);
+                    
+                    // Проверяем и исправляем структуру статистики
+                    Object.keys(playerStats).forEach(playerId => {
+                        const stats = playerStats[playerId];
+                        if (!stats.victories) stats.victories = 0;
+                        if (!stats.defeats) stats.defeats = 0;
+                        if (!stats.draws) stats.draws = 0;
+                        if (!stats.contributedPoints) stats.contributedPoints = 0;
+                        if (!stats.totalGames) stats.totalGames = 0;
+                    });
+                } catch (e) {
+                    console.error('❌ Ошибка загрузки статистики:', e);
+                    initDefaultPlayerStats();
+                }
+            } else {
+                initDefaultPlayerStats();
+            }
+        }
+        
+        function initDefaultPlayerStats() {
+            playerStats = {};
+            users.forEach(user => {
+                playerStats[user.id] = {
+                    victories: 0,
+                    defeats: 0,
+                    draws: 0,
+                    lastGame: null,
+                    lastActivity: null,
+                    totalGames: 0
+                };
+            });
+            savePlayerStats();
+        }
+        
+        function savePlayerStats() {
+            try {
+                localStorage.setItem(PLAYER_STATS_KEY, JSON.stringify(playerStats));
+            } catch (e) {
+                console.error('❌ Ошибка сохранения статистики:', e);
+            }
+        }
+        
+        // ===== СИСТЕМА ВОЕННЫХ ХРОНИК =====
+        function initWarChronicles() {
+            const saved = localStorage.getItem(WAR_CHRONICLES_KEY);
+            if (saved) {
+                try {
+                    warChronicles = JSON.parse(saved);
+                    cleanupOldRecords();
+                    updateChroniclesCount();
+                    updateRecentChronics();
+                } catch (e) {
+                    console.error('❌ Ошибка загрузки хроник:', e);
+                    warChronicles = [];
+                }
+            } else {
+                warChronicles = [];
+            }
+        }
+        
+        function cleanupOldRecords() {
+            const oldRecords = warChronicles.filter(record => 
+                record.type === 'BATTLE' || 
+                (record.type === 'MISSION_COMPLETE' && record.details.resultType)
+            );
+            
+            if (oldRecords.length > 0) {
+                warChronicles = warChronicles.filter(record => 
+                    record.type !== 'BATTLE' && 
+                    !(record.type === 'MISSION_COMPLETE' && record.details.resultType)
+                );
+                saveWarChronicles();
+            }
+        }
+        
+        function saveWarChronicles() {
+            try {
+                localStorage.setItem(WAR_CHRONICLES_KEY, JSON.stringify(warChronicles));
+                updateChroniclesCount();
+                updateRecentChronics();
+            } catch (e) {
+                console.error('❌ Ошибка сохранения хроник:', e);
+            }
+        }
+        
+        function updateChroniclesCount() {
+            const countEl = document.getElementById('chronicles-count');
+            if (countEl) {
+                countEl.textContent = warChronicles.length;
+            }
+        }
+        
+        // ===== ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ =====
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Сначала инициализируем базовые данные
+            const serverLoaded = await initializePlanetsData();
+            
+            if (serverLoaded) {
+                console.log('✅ Данные загружены с сервера');
+            } else {
+                console.log('⚠️ Используются локальные данные');
+            }
+            
+            // Затем загружаем пользователей и статистику
+            initUsers();
+            initWarChronicles();
+            initPlayerStats();
+            
+            // Обновляем отображение
+            await loadGameDataFromServer();
+            updatePlayersDisplay();
+            updateStatusInfo();
+            
+            // Инициализируем остальные компоненты
+            createPlanets();
+            
+            setTimeout(() => {
+                initD3Visualization();
+            }, 1000);
+            
+            setTimeout(() => {
+                drawEncircledPlanets();
+            }, 500);
+            
+            console.log('=== ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА ===');
+            
+            // Автоматически выбираем первую планету с миссиями
+            setTimeout(() => {
+                if (allPlanetsData.length > 0) {
+                    const firstPlanet = allPlanetsData.find(p => p.missions && p.missions.length > 0) || allPlanetsData[0];
+                    if (firstPlanet) {
+                        showPlanetInfo(firstPlanet);
+                        console.log('Автоматически выбрана планета:', firstPlanet.name);
+                    }
+                }
+            }, 1000);
+            
+            setTimeout(() => {
+                console.log('🚀 ========= Alpha Strike =========');
+                console.log('👥 Пользователи предустановлены (10 игроков)');
+                console.log('');
+                console.log('⚔️ Основная команда:');
+                console.log('   alphaStrike.completeMission("Brighton", 0, [{id:1,faction:"stives"},{id:2,faction:"capellan"}], 150, "stives", "Описание")');
+                console.log('');
+                console.log('📊 Статистика:');
+                console.log('   alphaStrike.getPlanetInfo("St. Ives")');
+                console.log('   alphaStrike.getWarChronicles()');
+                console.log('   alphaStrike.getUsers()');
+                console.log('   alphaStrike.getStats()');
+                console.log('');
+                console.log('🎯 Логика перевеса:');
+                console.log('   • 0-500 очков перевеса');
+                console.log('   • Домашняя фракция выиграла → перевес уменьшается');
+                console.log('   • Вторженцы выиграли → перевес увеличивается');
+                console.log('   • При 500 очков → захват планеты');
+                console.log('======================================');
+            }, 1500);
+        });
+        
+        // ===== РЕЗЕРВНАЯ ЗАГРУЗКА D3 =====
+        setTimeout(function() {
+            if (typeof d3 === 'undefined') {
+                var script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js';
+                script.crossOrigin = 'anonymous';
+                
+                script.onload = function() {
+                    console.log('D3 загружен из альтернативного источника');
+                    if (typeof initD3Visualization === 'function') {
+                        initD3Visualization();
+                    }
+                };
+                
+                script.onerror = function() {
+                    console.log('JsDelivr не сработал, пробуем cdnjs...');
+                    
+                    var script2 = document.createElement('script');
+                    script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js';
+                    script2.crossOrigin = 'anonymous';
+                    
+                    script2.onload = function() {
+                        console.log('D3 загружен из cdnjs');
+                        if (typeof initD3Visualization === 'function') {
+                            initD3Visualization();
+                        }
+                    };
+                    
+                    script2.onerror = function() {
+                        console.error('Не удалось загрузить D3 из альтернативных источников');
+                    };
+                    
+                    document.head.appendChild(script2);
+                };
+                
+                document.head.appendChild(script);
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
