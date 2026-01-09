@@ -1949,60 +1949,60 @@ alphaStrike.completeMission('Brighton', 0, [<br>
         }
         
         function updateFactionStats() {
-            let stivesVictories = 0, stivesDefeats = 0, stivesDraws = 0, stivesPlayers = 0;
-            let capellanVictories = 0, capellanDefeats = 0, capellanDraws = 0, capellanPlayers = 0;
-            
-            users.forEach(user => {
-                const stats = playerStats[user.id] || { victories: 0, defeats: 0, draws: 0 };
-                
-                if (user.faction === 'stives') {
-                    stivesPlayers++;
-                    stivesVictories += stats.victories;
-                    stivesDefeats += stats.defeats;
-                    stivesDraws += stats.draws;
-                } else if (user.faction === 'capellan') {
-                    capellanPlayers++;
-                    capellanVictories += stats.victories;
-                    capellanDefeats += stats.defeats;
-                    capellanDraws += stats.draws;
-                }
-            });
-            
-            const stivesTotal = stivesVictories + stivesDefeats + stivesDraws;
-            const capellanTotal = capellanVictories + capellanDefeats + capellanDraws;
-            const stivesRatio = stivesTotal > 0 ? Math.round((stivesVictories / stivesTotal) * 100) : 0;
-            const capellanRatio = capellanTotal > 0 ? Math.round((capellanVictories / capellanTotal) * 100) : 0;
-            
-            // Обновляем DOM элементы
-            const elements = {
-                'stives-players': stivesPlayers,
-                'stives-victories': stivesVictories,
-                'stives-defeats': stivesDefeats,
-                'stives-draws': stivesDraws,
-                'stives-ratio': stivesRatio + '%',
-                'capellan-players': capellanPlayers,
-                'capellan-victories': capellanVictories,
-                'capellan-defeats': capellanDefeats,
-                'capellan-draws': capellanDraws,
-                'capellan-ratio': capellanRatio + '%'
-            };
-            
-            Object.entries(elements).forEach(([id, value]) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = value;
-            });
-            
-            const totalBattles = stivesTotal + capellanTotal;
-            document.getElementById('total-battles').textContent = totalBattles;
-            document.getElementById('total-battles-count').textContent = totalBattles;
-            
-            const activePlayers = users.filter(user => {
-                const stats = playerStats[user.id];
-                return stats && stats.lastActivity && 
-                    (new Date() - new Date(stats.lastActivity)) < 24 * 60 * 60 * 1000;
-            }).length;
-            document.getElementById('active-players').textContent = activePlayers;
+    let stivesVictories = 0, stivesDefeats = 0, stivesDraws = 0, stivesPlayers = 0;
+    let capellanVictories = 0, capellanDefeats = 0, capellanDraws = 0, capellanPlayers = 0;
+    
+    users.forEach(user => {
+        const stats = playerStats[user.id] || { victories: 0, defeats: 0, draws: 0 };
+        
+        if (user.faction === 'stives') {
+            stivesPlayers++;
+            stivesVictories += stats.victories;
+            stivesDefeats += stats.defeats;
+            stivesDraws += stats.draws;
+        } else if (user.faction === 'capellan') {
+            capellanPlayers++;
+            capellanVictories += stats.victories;
+            capellanDefeats += stats.defeats;
+            capellanDraws += stats.draws;
         }
+    });
+    
+    const stivesTotal = stivesVictories + stivesDefeats + stivesDraws;
+    const capellanTotal = capellanVictories + capellanDefeats + capellanDraws;
+    const stivesRatio = stivesTotal > 0 ? parseFloat(((stivesVictories / stivesTotal) * 100).toFixed(2)) : 0;
+    const capellanRatio = capellanTotal > 0 ? parseFloat(((capellanVictories / capellanTotal) * 100).toFixed(2)) : 0;
+    
+    // Обновляем DOM элементы
+    const elements = {
+        'stives-players': stivesPlayers,
+        'stives-victories': stivesVictories.toFixed(2),
+        'stives-defeats': Math.round(stivesDefeats),
+        'stives-draws': Math.round(stivesDraws),
+        'stives-ratio': stivesRatio + '%',
+        'capellan-players': capellanPlayers,
+        'capellan-victories': capellanVictories.toFixed(2),
+        'capellan-defeats': Math.round(capellanDefeats),
+        'capellan-draws': Math.round(capellanDraws),
+        'capellan-ratio': capellanRatio + '%'
+    };
+    
+    Object.entries(elements).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    });
+    
+    const totalBattles = Math.round(stivesTotal + capellanTotal);
+    document.getElementById('total-battles').textContent = totalBattles;
+    document.getElementById('total-battles-count').textContent = totalBattles;
+    
+    const activePlayers = users.filter(user => {
+        const stats = playerStats[user.id];
+        return stats && stats.lastActivity && 
+            (new Date() - new Date(stats.lastActivity)) < 24 * 60 * 60 * 1000;
+    }).length;
+    document.getElementById('active-players').textContent = activePlayers;
+}
         
         // ===== СИСТЕМА ВОЕННЫХ ХРОНИК =====
         function addWarRecord(record) {
@@ -2259,226 +2259,334 @@ alphaStrike.completeMission('Brighton', 0, [<br>
         }
         
         async function loadGameDataFromServer() {
-            try {
-                console.log('🌐 Загрузка данных с сервера...');
-                const response = await fetch(`${baseUrl}/api/state`);
-                if (!response.ok) {
-                    throw new Error('Ошибка загрузки данных: ' + response.status);
-                }
-                const data = await response.json();
-                
-                // Обновляем пользователей с сервера
-                if (data.players && Array.isArray(data.players)) {
-                    const serverUsers = data.players.map(player => ({
-                        id: player.ID || player.id || 0,
-                        name: (player.Name || player.name || 'Без имени').trim(),
-                        rank: (player.Rank || player.rank || 'Без звания').replace(/\t/g, ' ').trim(),
-                        faction: player.Faction || player.faction || 'neutral'
-                    })).filter(player => player.name && player.name.trim() !== '');
-                    
-                    if (serverUsers.length > 0) {
-                        users = serverUsers;
-                        saveUsers();
-                        
-                        // Добавляем недостающих пользователей в статистику
-                        serverUsers.forEach(user => {
-                            if (!playerStats[user.id]) {
-                                playerStats[user.id] = {
-                                    victories: 0,
-                                    defeats: 0,
-                                    draws: 0,
-                                    contributedPoints: 0,
-                                    lastGame: null,
-                                    lastActivity: null,
-                                    totalGames: 0
-                                };
-                            }
-                        });
-                        savePlayerStats();
-                    }
-                }
-                
-                // Обновляем статистику с сервера
-                if (data.playerStats) {
-                    for (const [playerIdStr, playerStat] of Object.entries(data.playerStats)) {
-                        const playerId = parseInt(playerIdStr);
-                        if (!isNaN(playerId)) {
-                            if (!playerStats[playerId]) {
-                                playerStats[playerId] = {
-                                    victories: 0,
-                                    defeats: 0,
-                                    draws: 0,
-                                    contributedPoints: 0,
-                                    lastGame: null,
-                                    lastActivity: null,
-                                    totalGames: 0
-                                };
-                            }
-                            
-                            playerStats[playerId].victories = playerStat.Victories || 0;
-                            playerStats[playerId].defeats = playerStat.Defeats || 0;
-                            playerStats[playerId].draws = playerStat.Draws || 0;
-                            playerStats[playerId].totalGames = playerStat.TotalGames || 0;
-                            
-                            if (playerStat.LastActivity) {
-                                playerStats[playerId].lastActivity = new Date(playerStat.LastActivity).toISOString();
-                            }
-                            
-                            if (playerStat.LastGame) {
-                                playerStats[playerId].lastGame = {
-                                    date: playerStat.LastGame.Date ? new Date(playerStat.LastGame.Date).toISOString() : null,
-                                    planet: playerStat.LastGame.Planet || null,
-                                    result: playerStat.LastGame.Result || null,
-                                    points: playerStat.LastGame.Points || 0,
-                                    mission: playerStat.LastGame.Mission || null
-                                };
-                            }
-                        }
-                    }
-                    savePlayerStats();
-                }
-                
-                // Обновляем отображение
-                updatePlayersDisplay();
-                updateUsersCount();
-                return true;
-                
-            } catch (error) {
-                console.error('❌ Ошибка загрузки данных с сервера:', error);
-                return false;
+    try {
+        console.log('🌐 Загрузка данных с сервера...');
+        const response = await fetch(`${baseUrl}/api/state`);
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки данных: ' + response.status);
+        }
+        const data = await response.json();
+        
+        // Обновляем пользователей с сервера
+        if (data.players && Array.isArray(data.players)) {
+            const serverUsers = data.players.map(player => ({
+                id: player.ID || player.id || 0,
+                name: (player.Name || player.name || 'Без имени').trim(),
+                rank: (player.Rank || player.rank || 'Без звания').replace(/\t/g, ' ').trim(),
+                faction: player.Faction || player.faction || 'neutral'
+            })).filter(player => player.name && player.name.trim() !== '');
+            
+            if (serverUsers.length > 0) {
+                users = serverUsers;
+                saveUsers();
             }
         }
         
-        // ===== КОНСОЛЬНЫЕ КОМАНДЫ =====
-        window.alphaStrike = {
-            completeMission: function(planetName, missionIndex, participants, points, winningFaction, description) {
-                const planet = allPlanetsData.find(p => p.name === planetName);
-                
-                if (!planet) {
-                    console.error('❌ Планета не найдена');
-                    return null;
-                }
-                
-                if (!planet.missions || planet.missions.length <= missionIndex) {
-                    console.error('❌ Миссия не найдена');
-                    return null;
-                }
-                
-                if (!['stives', 'capellan'].includes(winningFaction)) {
-                    console.error('❌ Победитель должен быть St. Ives или Capellan');
-                    return null;
-                }
-
-                if (points <= 0) {
-                    console.error('❌ Количество очков должно быть положительным числом');
-                    return null;
-                }
-                
-                const completedMission = planet.missions.splice(missionIndex, 1)[0];
-                
-                // Обновляем перевес планеты
-                const oldBalance = planet.balance;
-                const attackerFaction = getAttackerFaction(planet.faction);
-                
-                if (winningFaction === planet.faction) {
-                    // Домашняя фракция выиграла - уменьшаем перевес
-                    planet.balance = Math.max(0, oldBalance - points);
-                    console.log(`➖ Домашняя фракция ${planet.faction} выиграла: перевес ${oldBalance} → ${planet.balance}`);
-                } else if (winningFaction === attackerFaction) {
-                    // Вторженцы выиграли - увеличиваем перевес
-                    planet.balance = Math.min(500, oldBalance + points);
-                    console.log(`➕ Вторженцы ${attackerFaction} выиграли: перевес ${oldBalance} → ${planet.balance}`);
-                    
-                    // Проверяем захват
-                    if (planet.balance >= 500) {
-                        console.log(`🎯 Захват планеты ${planet.name}!`);
-                        this.changeFaction(planet.name, attackerFaction, `Захват при достижении перевеса ${points} очков`);
-                        planet.balance = 0;
-                    }
-                }
-                
-                // Добавляем новую уникальную миссию
-                if (planet.isBorderPlanet && planet.missions.length < 3) {
-                    const newMissionName = generateUniqueMission(planet);
-                    planet.missions.push({
-                        name: newMissionName,
-                        status: 'active'
-                    });
-                }
-                
-                // Обновляем статистику участников
-                participants.forEach(participant => {
-                    const playerId = typeof participant === 'object' ? participant.id : participant;
-                    const playerFaction = typeof participant === 'object' ? participant.faction : 
-                                        users.find(u => u.id === participant)?.faction;
-                    
+        // Обновляем статистику с сервера
+        if (data.playerStats) {
+            console.log('📊 Загрузка статистики с сервера...');
+            for (const [playerIdStr, playerStat] of Object.entries(data.playerStats)) {
+                const playerId = parseInt(playerIdStr);
+                if (!isNaN(playerId)) {
                     if (!playerStats[playerId]) {
                         playerStats[playerId] = {
                             victories: 0,
                             defeats: 0,
+                            draws: 0,
                             totalPoints: 0,
                             contributedPoints: 0,
                             lastGame: null,
-                            lastActivity: new Date().toISOString(),
-                            totalGames: 0
+                            lastActivity: null,
+                            totalGames: 0,
+                            victoriesDecimal: 0
                         };
                     }
                     
-                    const stats = playerStats[playerId];
-                    stats.totalGames++;
-                    stats.lastActivity = new Date().toISOString();
+                    // SERVER: Victories хранится как целое * 100
+                    // CLIENT: victories хранится как дробное
+                    const serverVictories = playerStat.Victories || 0;
                     
-                    if (playerFaction === winningFaction) {
-                        stats.victories++;
-                        stats.totalPoints += points;
-                        stats.contributedPoints += points;
-                    } else {
-                        stats.defeats++;
+                    // Преобразуем serverVictories (целое * 100) в дробное число для клиента
+                    playerStats[playerId].victories = serverVictories / 100;
+                    playerStats[playerId].victoriesDecimal = serverVictories / 100;
+                    playerStats[playerId].defeats = playerStat.Defeats || 0;
+                    playerStats[playerId].draws = playerStat.Draws || 0;
+                    playerStats[playerId].totalGames = playerStat.TotalGames || 0;
+                    
+                    if (playerStat.LastActivity) {
+                        playerStats[playerId].lastActivity = new Date(playerStat.LastActivity).toISOString();
                     }
                     
-                    stats.lastGame = {
-                        date: new Date().toISOString(),
-                        mission: completedMission.name,
-                        points: points,
-                        result: playerFaction === winningFaction ? 'VICTORY' : 'DEFEAT',
-                        faction: playerFaction,
-                        winningFaction: winningFaction
-                    };
-                });
-                
-                savePlayerStats();
-                updatePlayersDisplay();
-                
-                // Записываем в хронику
-                const chronicRecord = addWarRecord({
-                    type: 'MISSION_COMPLETE',
-                    planetName: planetName,
-                    userId: participants[0]?.id || 0,
-                    details: {
-                        missionName: completedMission.name,
-                        participants: participants,
-                        points: points,
-                        winningFaction: winningFaction,
-                        description: description,
-                        balanceChange: winningFaction === getAttackerFaction(planet.faction) ? points : -points,
-                        newBalance: planet.balance
+                    if (playerStat.LastGame) {
+                        playerStats[playerId].lastGame = {
+                            date: playerStat.LastGame.Date ? new Date(playerStat.LastGame.Date).toISOString() : null,
+                            planet: playerStat.LastGame.Planet || null,
+                            result: playerStat.LastGame.Result || null,
+                            points: playerStat.LastGame.Points || 0,
+                            mission: playerStat.LastGame.Mission || null
+                        };
                     }
-                });
-                
-                // Обновляем отображение
-                createPlanets();
-                initD3Visualization();
-                drawEncircledPlanets();
-                
-                if (selectedPlanet && selectedPlanet.name === planetName) {
-                    showPlanetInfo(planet);
                 }
+            }
+            savePlayerStats();
+            console.log('✅ Статистика загружена с сервера');
+        }
+        
+        // Обновляем планеты с сервера
+        if (data.planets && Array.isArray(data.planets)) {
+            console.log('🔄 Обновление планет с сервера...');
+            data.planets.forEach(serverPlanet => {
+                const localPlanetIndex = allPlanetsData.findIndex(p => p.name === serverPlanet.Name);
+                if (localPlanetIndex !== -1) {
+                    // Обновляем только важные поля
+                    allPlanetsData[localPlanetIndex].balance = serverPlanet.Balance || 0;
+                    allPlanetsData[localPlanetIndex].faction = serverPlanet.Faction;
+                    allPlanetsData[localPlanetIndex].factionColor = serverPlanet.FactionColor;
+                    allPlanetsData[localPlanetIndex].factionName = serverPlanet.FactionName;
+                    allPlanetsData[localPlanetIndex].currentFactionName = serverPlanet.CurrentFactionName;
+                    allPlanetsData[localPlanetIndex].missions = serverPlanet.Missions || [];
+                    allPlanetsData[localPlanetIndex].isNeutral = serverPlanet.IsNeutral;
+                    allPlanetsData[localPlanetIndex].isBorderPlanet = serverPlanet.IsBorderPlanet;
+                }
+            });
+        }
+        
+        // Обновляем отображение
+        updatePlayersDisplay();
+        updateUsersCount();
+        
+        // Обновляем интерфейс
+        createPlanets();
+        if (selectedPlanet) {
+            // Обновляем информацию о выбранной планете
+            const updatedPlanet = allPlanetsData.find(p => p.name === selectedPlanet.name);
+            if (updatedPlanet) {
+                showPlanetInfo(updatedPlanet);
+            }
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки данных с сервера:', error);
+        return false;
+    }
+}
+        
+        // ===== КОНСОЛЬНЫЕ КОМАНДЫ =====
+        window.alphaStrike = {
+            completeMission: function(planetName, missionIndex, participants, points, winningFaction, description) {
+    const planet = allPlanetsData.find(p => p.name === planetName);
+    
+    if (!planet) {
+        console.error('❌ Планета не найдена');
+        return null;
+    }
+    
+    if (!planet.missions || planet.missions.length <= missionIndex) {
+        console.error('❌ Миссия не найдена');
+        return null;
+    }
+    
+    if (!['stives', 'capellan'].includes(winningFaction)) {
+        console.error('❌ Победитель должен быть St. Ives или Capellan');
+        return null;
+    }
+
+    if (points <= 0) {
+        console.error('❌ Количество очков должно быть положительным числом');
+        return null;
+    }
+    
+    // Вычисляем количество победителей
+    const winningParticipants = participants.filter(p => p.faction === winningFaction);
+    const winShare = winningParticipants.length > 0 ? parseFloat((1 / winningParticipants.length).toFixed(2)) : 0;
+    
+    console.log(`🎯 Доля победы на игрока: ${winShare} (${winningParticipants.length} победителей)`);
+    
+    // Отправляем запрос на сервер
+    return fetch(`${baseUrl}/api/complete-mission`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            planetName: planetName,
+            missionIndex: missionIndex,
+            participants: participants,
+            points: points,
+            winningFaction: winningFaction,
+            description: description
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('❌ Ошибка при выполнении миссии:', data);
+            return null;
+        }
+        
+        // Обновляем локальные данные с сервера
+        if (data.planet) {
+            const planetIndex = allPlanetsData.findIndex(p => p.name === planetName);
+            if (planetIndex !== -1) {
+                // Обновляем планету
+                allPlanetsData[planetIndex] = {
+                    ...allPlanetsData[planetIndex],
+                    balance: data.planet.balance || 0,
+                    faction: data.planet.faction,
+                    factionColor: data.planet.factionColor,
+                    factionName: data.planet.factionName,
+                    currentFactionName: data.planet.currentFactionName,
+                    missions: data.planet.missions || [],
+                    isNeutral: data.planet.isNeutral,
+                    isBorderPlanet: data.planet.isBorderPlanet
+                };
                 
-                console.log(`✅ Миссия выполнена: ${completedMission.name}`);
-                console.log(`📊 Новый перевес на ${planet.name}: ${planet.balance}/500`);
-                
-                return chronicRecord;
-            },
+                // Обновляем выбранную планету если она активна
+                if (selectedPlanet && selectedPlanet.name === planetName) {
+                    selectedPlanet = allPlanetsData[planetIndex];
+                    showPlanetInfo(selectedPlanet);
+                }
+            }
+        }
+        
+        // Загружаем обновленные данные с сервера
+        loadGameDataFromServer().then(() => {
+            // Обновляем отображение
+            createPlanets();
+            if (d3Svg) {
+                initD3Visualization();
+            }
+            drawEncircledPlanets();
+            updateStatusInfo();
+            updateRecentChronics();
+        });
+        
+        console.log(`✅ Миссия выполнена: ${planetName}`);
+        console.log(`📊 Доли побед распределены:`, data.winShares || {});
+        
+        return data;
+    })
+    .catch(error => {
+        console.error('❌ Ошибка при отправке запроса:', error);
+        
+        // Резервное обновление на фронтенде (если сервер недоступен)
+        console.log('⚠️ Используем локальное обновление...');
+        
+        const completedMission = planet.missions.splice(missionIndex, 1)[0];
+        
+        // Обновляем перевес планеты
+        const oldBalance = planet.balance;
+        const attackerFaction = getAttackerFaction(planet.faction);
+        
+        if (winningFaction === planet.faction) {
+            planet.balance = Math.max(0, oldBalance - points);
+            console.log(`➖ Домашняя фракция ${planet.faction} выиграла: перевес ${oldBalance} → ${planet.balance}`);
+        } else if (winningFaction === attackerFaction) {
+            planet.balance = Math.min(500, oldBalance + points);
+            console.log(`➕ Вторженцы ${attackerFaction} выиграли: перевес ${oldBalance} → ${planet.balance}`);
+            
+            // Проверяем захват
+            if (planet.balance >= 500) {
+                console.log(`🎯 Захват планеты ${planet.name}!`);
+                this.changeFaction(planet.name, attackerFaction, `Захват при достижении перевеса ${points} очков`);
+                planet.balance = 0;
+            }
+        }
+        
+        // Добавляем новую уникальную миссию
+        if (planet.isBorderPlanet && planet.missions.length < 3) {
+            const newMissionName = generateUniqueMission(planet);
+            planet.missions.push({
+                name: newMissionName,
+                status: 'active'
+            });
+        }
+        
+        // Обновляем статистику участников С ДОЛЯМИ
+        participants.forEach(participant => {
+            const playerId = typeof participant === 'object' ? participant.id : participant;
+            const playerFaction = typeof participant === 'object' ? participant.faction : 
+                                users.find(u => u.id === participant)?.faction;
+            
+            if (!playerStats[playerId]) {
+                playerStats[playerId] = {
+                    victories: 0,
+                    defeats: 0,
+                    draws: 0,
+                    totalPoints: 0,
+                    contributedPoints: 0,
+                    lastGame: null,
+                    lastActivity: new Date().toISOString(),
+                    totalGames: 0,
+                    victoriesDecimal: 0
+                };
+            }
+            
+            const stats = playerStats[playerId];
+            stats.totalGames++;
+            stats.lastActivity = new Date().toISOString();
+            
+            if (playerFaction === winningFaction) {
+                // Добавляем ДОЛЮ победы
+                stats.victoriesDecimal = (stats.victoriesDecimal || 0) + winShare;
+                // Округляем до 2 знаков для отображения
+                stats.victories = parseFloat(stats.victoriesDecimal.toFixed(2));
+                stats.totalPoints += points;
+                stats.contributedPoints += points;
+            } else {
+                stats.defeats++;
+            }
+            
+            stats.lastGame = {
+                date: new Date().toISOString(),
+                mission: completedMission.name,
+                points: points,
+                result: playerFaction === winningFaction ? 'VICTORY' : 'DEFEAT',
+                faction: playerFaction,
+                winningFaction: winningFaction
+            };
+        });
+        
+        savePlayerStats();
+        updatePlayersDisplay();
+        
+        // Записываем в хронику
+        const chronicRecord = addWarRecord({
+            type: 'MISSION_COMPLETE',
+            planetName: planetName,
+            userId: participants[0]?.id || 0,
+            details: {
+                missionName: completedMission.name,
+                participants: participants,
+                points: points,
+                winningFaction: winningFaction,
+                description: description,
+                winShare: winShare,
+                winningCount: winningParticipants.length
+            }
+        });
+        
+        // Обновляем отображение
+        createPlanets();
+        if (d3Svg) {
+            initD3Visualization();
+        }
+        drawEncircledPlanets();
+        updateStatusInfo();
+        updateRecentChronics();
+        
+        if (selectedPlanet && selectedPlanet.name === planetName) {
+            showPlanetInfo(planet);
+        }
+        
+        console.log(`✅ Миссия выполнена (локально): ${completedMission.name}`);
+        console.log(`📊 Новый перевес на ${planet.name}: ${planet.balance}/500`);
+        
+        return chronicRecord;
+    });
+},
             
             changeFaction: function(planetName, newFaction, reason = 'Военная операция') {
                 const planet = allPlanetsData.find(p => p.name === planetName);
@@ -2960,6 +3068,9 @@ alphaStrike.completeMission('Brighton', 0, [<br>
                 console.log('   • При 500 очков → захват планеты');
                 console.log('======================================');
             }, 1500);
+            setInterval(() => {
+            syncPlayerStats();
+            }, 600000);
         });
         
         // ===== РЕЗЕРВНАЯ ЗАГРУЗКА D3 =====

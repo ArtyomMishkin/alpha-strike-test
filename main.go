@@ -61,7 +61,7 @@ type Player struct {
 }
 
 type PlayerStats struct {
-	Victories    int       `json:"victories"`
+	Victories    int       `json:"victories"` // Хранится как целое * 100
 	Defeats      int       `json:"defeats"`
 	Draws        int       `json:"draws"`
 	TotalGames   int       `json:"totalGames"`
@@ -308,6 +308,38 @@ func saveState(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Вычисляет доли побед для игроков (умноженные на 100 для хранения как целых)
+func calculateWinShares(participants []struct {
+	ID      int    `json:"id"`
+	Faction string `json:"faction"`
+}, winningFaction string) map[int]int {
+	// Подсчитываем количество игроков победившей фракции
+	winningCount := 0
+	for _, p := range participants {
+		if p.Faction == winningFaction {
+			winningCount++
+		}
+	}
+
+	// Если нет победителей, возвращаем пустую карту
+	if winningCount == 0 {
+		return make(map[int]int)
+	}
+
+	// Вычисляем долю для каждого победителя (умножаем на 100 для целочисленного хранения)
+	// Округляем до 2 знаков после запятой
+	winShare := int(math.Round(100.0 / float64(winningCount)))
+	shares := make(map[int]int)
+
+	for _, p := range participants {
+		if p.Faction == winningFaction {
+			shares[p.ID] = winShare
+		}
+	}
+
+	return shares
+}
+
 func completeMission(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -405,17 +437,36 @@ func completeMission(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Вычисляем доли побед для участников (умноженные на 100)
+	winShares := calculateWinShares(req.Participants, req.WinningFaction)
+
 	// Обновляем статистику игроков
 	for _, participant := range req.Participants {
-		stats := gameState.PlayerStats[participant.ID]
+		stats, exists := gameState.PlayerStats[participant.ID]
+		if !exists {
+			// Создаем новую статистику если не существует
+			stats = PlayerStats{
+				Victories:    0,
+				Defeats:      0,
+				Draws:        0,
+				TotalGames:   0,
+				LastActivity: time.Now(),
+				LastGame:     LastGame{},
+			}
+		}
+
 		stats.TotalGames++
 		stats.LastActivity = time.Now()
 
 		result := "DEFEAT"
 		if participant.Faction == req.WinningFaction {
-			stats.Victories++
+			// Добавляем долю победы (уже умноженную на 100)
+			if share, hasShare := winShares[participant.ID]; hasShare {
+				stats.Victories += share
+			}
 			result = "VICTORY"
 		} else {
+			// Поражение - целое число
 			stats.Defeats++
 		}
 
@@ -451,9 +502,10 @@ func completeMission(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"planet":  planet,
-		"record":  record,
+		"success":   true,
+		"planet":    planet,
+		"record":    record,
+		"winShares": winShares, // Для отладки
 	})
 }
 
