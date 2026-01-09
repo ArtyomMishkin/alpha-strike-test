@@ -2375,84 +2375,199 @@ alphaStrike.completeMission('Brighton', 0, [<br>
         
         // ===== КОНСОЛЬНЫЕ КОМАНДЫ =====
         window.alphaStrike = {
-            completeMission: function(planetName, missionIndex, participants, points, winningFaction, description) {
-    const planet = allPlanetsData.find(p => p.name === planetName);
-    
-    if (!planet) {
-        console.error('❌ Планета не найдена');
-        return null;
-    }
-    
-    if (!planet.missions || planet.missions.length <= missionIndex) {
-        console.error('❌ Миссия не найдена');
-        return null;
-    }
-    
-    if (!['stives', 'capellan'].includes(winningFaction)) {
-        console.error('❌ Победитель должен быть St. Ives или Capellan');
-        return null;
-    }
-
-    if (points <= 0) {
-        console.error('❌ Количество очков должно быть положительным числом');
-        return null;
-    }
-    
-    // Вычисляем количество победителей
-    const winningParticipants = participants.filter(p => p.faction === winningFaction);
-    const winShare = winningParticipants.length > 0 ? parseFloat((1 / winningParticipants.length).toFixed(2)) : 0;
-    
-    console.log(`🎯 Доля победы на игрока: ${winShare} (${winningParticipants.length} победителей)`);
-    
-    // Отправляем запрос на сервер
-    return fetch(`${baseUrl}/api/complete-mission`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            planetName: planetName,
-            missionIndex: missionIndex,
-            participants: participants,
-            points: points,
-            winningFaction: winningFaction,
-            description: description
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (!data.success) {
-            console.error('❌ Ошибка при выполнении миссии:', data);
+                completeMission: function(planetName, missionIndex, participants, points, winningFaction, description) {
+        const planet = allPlanetsData.find(p => p.name === planetName);
+        
+        if (!planet) {
+            console.error('❌ Планета не найдена');
             return null;
         }
         
-        // Обновляем локальные данные с сервера
-        if (data.planet) {
-            const planetIndex = allPlanetsData.findIndex(p => p.name === planetName);
-            if (planetIndex !== -1) {
-                // Обновляем планету
-                allPlanetsData[planetIndex] = {
-                    ...allPlanetsData[planetIndex],
-                    balance: data.planet.balance || 0,
-                    faction: data.planet.faction,
-                    factionColor: data.planet.factionColor,
-                    factionName: data.planet.factionName,
-                    currentFactionName: data.planet.currentFactionName,
-                    missions: data.planet.missions || [],
-                    isNeutral: data.planet.isNeutral,
-                    isBorderPlanet: data.planet.isBorderPlanet
-                };
-                
-                // Обновляем выбранную планету если она активна
-                if (selectedPlanet && selectedPlanet.name === planetName) {
-                    selectedPlanet = allPlanetsData[planetIndex];
-                    showPlanetInfo(selectedPlanet);
-                }
-            }
+        if (!planet.missions || planet.missions.length <= missionIndex) {
+            console.error('❌ Миссия не найдена');
+            return null;
         }
         
-        // Загружаем обновленные данные с сервера
-        loadGameDataFromServer().then(() => {
+        if (!['stives', 'capellan'].includes(winningFaction)) {
+            console.error('❌ Победитель должен быть St. Ives или Capellan');
+            return null;
+        }
+
+        if (points <= 0) {
+            console.error('❌ Количество очков должно быть положительным числом');
+            return null;
+        }
+        
+        // Вычисляем количество победителей
+        const winningParticipants = participants.filter(p => p.faction === winningFaction);
+        const winShare = winningParticipants.length > 0 ? parseFloat((1 / winningParticipants.length).toFixed(2)) : 0;
+        
+        console.log(`🎯 Доля победы на игрока: ${winShare} (${winningParticipants.length} победителей)`);
+        
+        // Отправляем запрос на сервер
+        return fetch(`${baseUrl}/api/complete-mission`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                planetName: planetName,
+                missionIndex: missionIndex,
+                participants: participants,
+                points: points,
+                winningFaction: winningFaction,
+                description: description
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('❌ Ошибка при выполнении миссии:', data);
+                return null;
+            }
+            
+            // Обновляем локальные данные с сервера
+            if (data.planet) {
+                const planetIndex = allPlanetsData.findIndex(p => p.name === planetName);
+                if (planetIndex !== -1) {
+                    // Обновляем планету
+                    allPlanetsData[planetIndex] = {
+                        ...allPlanetsData[planetIndex],
+                        balance: data.planet.balance || 0,
+                        faction: data.planet.faction,
+                        factionColor: data.planet.factionColor,
+                        factionName: data.planet.factionName,
+                        currentFactionName: data.planet.currentFactionName,
+                        missions: data.planet.missions || [],
+                        isNeutral: data.planet.isNeutral,
+                        isBorderPlanet: data.planet.isBorderPlanet
+                    };
+                    
+                    // Обновляем выбранную планету если она активна
+                    if (selectedPlanet && selectedPlanet.name === planetName) {
+                        selectedPlanet = allPlanetsData[planetIndex];
+                        showPlanetInfo(selectedPlanet);
+                    }
+                }
+            }
+            
+            // Загружаем обновленные данные с сервера
+            loadGameDataFromServer().then(() => {
+                // Обновляем отображение
+                createPlanets();
+                if (d3Svg) {
+                    initD3Visualization();
+                }
+                drawEncircledPlanets();
+                updateStatusInfo();
+                updateRecentChronics();
+            });
+            
+            console.log(`✅ Миссия выполнена: ${planetName}`);
+            console.log(`📊 Доли побед распределены:`, data.winShares || {});
+            
+            return data;
+        })
+        .catch(error => {
+            console.error('❌ Ошибка при отправке запроса:', error);
+            
+            // Резервное обновление на фронтенде (если сервер недоступен)
+            console.log('⚠️ Используем локальное обновление...');
+            
+            const completedMission = planet.missions.splice(missionIndex, 1)[0];
+            
+            // Обновляем перевес планеты
+            const oldBalance = planet.balance;
+            const attackerFaction = getAttackerFaction(planet.faction);
+            
+            if (winningFaction === planet.faction) {
+                planet.balance = Math.max(0, oldBalance - points);
+                console.log(`➖ Домашняя фракция ${planet.faction} выиграла: перевес ${oldBalance} → ${planet.balance}`);
+            } else if (winningFaction === attackerFaction) {
+                planet.balance = Math.min(500, oldBalance + points);
+                console.log(`➕ Вторженцы ${attackerFaction} выиграли: перевес ${oldBalance} → ${planet.balance}`);
+                
+                // Проверяем захват
+                if (planet.balance >= 500) {
+                    console.log(`🎯 Захват планеты ${planet.name}!`);
+                    this.changeFaction(planet.name, attackerFaction, `Захват при достижении перевеса ${points} очков`);
+                    planet.balance = 0;
+                }
+            }
+            
+            // Добавляем новую уникальную миссию
+            if (planet.isBorderPlanet && planet.missions.length < 3) {
+                const newMissionName = generateUniqueMission(planet);
+                planet.missions.push({
+                    name: newMissionName,
+                    status: 'active'
+                });
+            }
+            
+            // Обновляем статистику участников С ДОЛЯМИ
+            participants.forEach(participant => {
+                const playerId = typeof participant === 'object' ? participant.id : participant;
+                const playerFaction = typeof participant === 'object' ? participant.faction : 
+                                    users.find(u => u.id === participant)?.faction;
+                
+                if (!playerStats[playerId]) {
+                    playerStats[playerId] = {
+                        victories: 0,
+                        defeats: 0,
+                        draws: 0,
+                        totalPoints: 0,
+                        contributedPoints: 0,
+                        lastGame: null,
+                        lastActivity: new Date().toISOString(),
+                        totalGames: 0,
+                        victoriesDecimal: 0
+                    };
+                }
+                
+                const stats = playerStats[playerId];
+                stats.totalGames++;
+                stats.lastActivity = new Date().toISOString();
+                
+                if (playerFaction === winningFaction) {
+                    // Добавляем ДОЛЮ победы
+                    stats.victoriesDecimal = (stats.victoriesDecimal || 0) + winShare;
+                    // Округляем до 2 знаков для отображения
+                    stats.victories = parseFloat(stats.victoriesDecimal.toFixed(2));
+                    stats.totalPoints += points;
+                    stats.contributedPoints += points;
+                } else {
+                    stats.defeats++;
+                }
+                
+                stats.lastGame = {
+                    date: new Date().toISOString(),
+                    mission: completedMission.name,
+                    points: points,
+                    result: playerFaction === winningFaction ? 'VICTORY' : 'DEFEAT',
+                    faction: playerFaction,
+                    winningFaction: winningFaction
+                };
+            });
+            
+            savePlayerStats();
+            updatePlayersDisplay();
+            
+            // Записываем в хронику
+            const chronicRecord = addWarRecord({
+        type: 'MISSION_COMPLETE',
+        planetName: planetName,
+        userId: participants[0]?.id || 0,
+        details: {
+            missionName: completedMission.name,
+            participants: participants,
+            points: points,
+            winningFaction: winningFaction,
+            description: description,
+            winShare: winShare,
+            winningCount: winningParticipants.length
+        }
+    });
+            
             // Обновляем отображение
             createPlanets();
             if (d3Svg) {
@@ -2461,132 +2576,23 @@ alphaStrike.completeMission('Brighton', 0, [<br>
             drawEncircledPlanets();
             updateStatusInfo();
             updateRecentChronics();
+            
+            if (selectedPlanet && selectedPlanet.name === planetName) {
+                showPlanetInfo(planet);
+            }
+            
+            console.log(`✅ Миссия выполнена (локально): ${completedMission.name}`);
+            console.log(`📊 Новый перевес на ${planet.name}: ${planet.balance}/500`);
+            
+            return {
+        success: true,
+        mission: completedMission.name,
+        planet: planet,
+        winShare: winShare,
+        participants: participants.length
+    };
         });
-        
-        console.log(`✅ Миссия выполнена: ${planetName}`);
-        console.log(`📊 Доли побед распределены:`, data.winShares || {});
-        
-        return data;
-    })
-    .catch(error => {
-        console.error('❌ Ошибка при отправке запроса:', error);
-        
-        // Резервное обновление на фронтенде (если сервер недоступен)
-        console.log('⚠️ Используем локальное обновление...');
-        
-        const completedMission = planet.missions.splice(missionIndex, 1)[0];
-        
-        // Обновляем перевес планеты
-        const oldBalance = planet.balance;
-        const attackerFaction = getAttackerFaction(planet.faction);
-        
-        if (winningFaction === planet.faction) {
-            planet.balance = Math.max(0, oldBalance - points);
-            console.log(`➖ Домашняя фракция ${planet.faction} выиграла: перевес ${oldBalance} → ${planet.balance}`);
-        } else if (winningFaction === attackerFaction) {
-            planet.balance = Math.min(500, oldBalance + points);
-            console.log(`➕ Вторженцы ${attackerFaction} выиграли: перевес ${oldBalance} → ${planet.balance}`);
-            
-            // Проверяем захват
-            if (planet.balance >= 500) {
-                console.log(`🎯 Захват планеты ${planet.name}!`);
-                this.changeFaction(planet.name, attackerFaction, `Захват при достижении перевеса ${points} очков`);
-                planet.balance = 0;
-            }
-        }
-        
-        // Добавляем новую уникальную миссию
-        if (planet.isBorderPlanet && planet.missions.length < 3) {
-            const newMissionName = generateUniqueMission(planet);
-            planet.missions.push({
-                name: newMissionName,
-                status: 'active'
-            });
-        }
-        
-        // Обновляем статистику участников С ДОЛЯМИ
-        participants.forEach(participant => {
-            const playerId = typeof participant === 'object' ? participant.id : participant;
-            const playerFaction = typeof participant === 'object' ? participant.faction : 
-                                users.find(u => u.id === participant)?.faction;
-            
-            if (!playerStats[playerId]) {
-                playerStats[playerId] = {
-                    victories: 0,
-                    defeats: 0,
-                    draws: 0,
-                    totalPoints: 0,
-                    contributedPoints: 0,
-                    lastGame: null,
-                    lastActivity: new Date().toISOString(),
-                    totalGames: 0,
-                    victoriesDecimal: 0
-                };
-            }
-            
-            const stats = playerStats[playerId];
-            stats.totalGames++;
-            stats.lastActivity = new Date().toISOString();
-            
-            if (playerFaction === winningFaction) {
-                // Добавляем ДОЛЮ победы
-                stats.victoriesDecimal = (stats.victoriesDecimal || 0) + winShare;
-                // Округляем до 2 знаков для отображения
-                stats.victories = parseFloat(stats.victoriesDecimal.toFixed(2));
-                stats.totalPoints += points;
-                stats.contributedPoints += points;
-            } else {
-                stats.defeats++;
-            }
-            
-            stats.lastGame = {
-                date: new Date().toISOString(),
-                mission: completedMission.name,
-                points: points,
-                result: playerFaction === winningFaction ? 'VICTORY' : 'DEFEAT',
-                faction: playerFaction,
-                winningFaction: winningFaction
-            };
-        });
-        
-        savePlayerStats();
-        updatePlayersDisplay();
-        
-        // Записываем в хронику
-        const chronicRecord = addWarRecord({
-            type: 'MISSION_COMPLETE',
-            planetName: planetName,
-            userId: participants[0]?.id || 0,
-            details: {
-                missionName: completedMission.name,
-                participants: participants,
-                points: points,
-                winningFaction: winningFaction,
-                description: description,
-                winShare: winShare,
-                winningCount: winningParticipants.length
-            }
-        });
-        
-        // Обновляем отображение
-        createPlanets();
-        if (d3Svg) {
-            initD3Visualization();
-        }
-        drawEncircledPlanets();
-        updateStatusInfo();
-        updateRecentChronics();
-        
-        if (selectedPlanet && selectedPlanet.name === planetName) {
-            showPlanetInfo(planet);
-        }
-        
-        console.log(`✅ Миссия выполнена (локально): ${completedMission.name}`);
-        console.log(`📊 Новый перевес на ${planet.name}: ${planet.balance}/500`);
-        
-        return chronicRecord;
-    });
-},
+    },
             
             changeFaction: function(planetName, newFaction, reason = 'Военная операция') {
                 const planet = allPlanetsData.find(p => p.name === planetName);
@@ -3068,9 +3074,6 @@ alphaStrike.completeMission('Brighton', 0, [<br>
                 console.log('   • При 500 очков → захват планеты');
                 console.log('======================================');
             }, 1500);
-            setInterval(() => {
-            syncPlayerStats();
-            }, 600000);
         });
         
         // ===== РЕЗЕРВНАЯ ЗАГРУЗКА D3 =====
