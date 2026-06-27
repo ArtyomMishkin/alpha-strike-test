@@ -1,0 +1,968 @@
+{
+  "planets": [
+    {
+      "name": "Campertown",
+      "x": 321,
+      "y": 112,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Tsinghai",
+      "x": 335,
+      "y": 71,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Chamdo",
+      "x": 412,
+      "y": 76,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Lesalles",
+      "x": 406,
+      "y": 143,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Raballa",
+      "x": 481,
+      "y": 102,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Bora",
+      "x": 580,
+      "y": 116,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Old Kentucky",
+      "x": 376,
+      "y": 25,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Wazan",
+      "x": 398,
+      "y": 27,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Quemoy",
+      "x": 606,
+      "y": 89,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Sarmaxa",
+      "x": 657,
+      "y": 134,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Sarna",
+      "x": 671,
+      "y": 90,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Kaifeng",
+      "x": 768,
+      "y": 100,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Truth",
+      "x": 805,
+      "y": 116,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Tsingtao",
+      "x": 887,
+      "y": 91,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Lee",
+      "x": 1028,
+      "y": 90,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Cammal",
+      "x": 1000,
+      "y": 144,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Gallitzin",
+      "x": 1090,
+      "y": 130,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Monhegan",
+      "x": 1029,
+      "y": 253,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Daniels",
+      "x": 1067,
+      "y": 319,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Alcyone",
+      "x": 1097,
+      "y": 331,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Shoreham",
+      "x": 1073,
+      "y": 447,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Weekapaung",
+      "x": 974,
+      "y": 491,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Scituate",
+      "x": 856,
+      "y": 459,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Kittery",
+      "x": 831,
+      "y": 479,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Gurnet",
+      "x": 888,
+      "y": 524,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Mentasta",
+      "x": 1016,
+      "y": 559,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Beid",
+      "x": 1071,
+      "y": 597,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Ziliang",
+      "x": 743,
+      "y": 715,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Uravan",
+      "x": 804,
+      "y": 712,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Velhas",
+      "x": 750,
+      "y": 790,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Immenstadt",
+      "x": 824,
+      "y": 783,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Weatogue",
+      "x": 919,
+      "y": 786,
+      "faction": "davion",
+      "factionColor": "#cd7f32",
+      "factionName": "Дом Дэвион",
+      "onFire": false
+    },
+    {
+      "name": "Calloway IV",
+      "x": 15,
+      "y": 343,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Les Halles",
+      "x": 120,
+      "y": 298,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Anegasaki",
+      "x": 66,
+      "y": 441,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Shuen Wan",
+      "x": 98,
+      "y": 465,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Ipswich",
+      "x": 81,
+      "y": 535,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Goodna",
+      "x": 182,
+      "y": 575,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Iknogoro",
+      "x": 73,
+      "y": 623,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Cronulla",
+      "x": 183,
+      "y": 640,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Kujari",
+      "x": 201,
+      "y": 720,
+      "faction": "freeWorlds",
+      "factionColor": "#800080",
+      "factionName": "Содружество Свободных Миров",
+      "onFire": false
+    },
+    {
+      "name": "Brighton",
+      "x": 810,
+      "y": 347,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": true
+    },
+    {
+      "name": "Nashuar",
+      "x": 911,
+      "y": 356,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Armaxa",
+      "x": 958,
+      "y": 377,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "St. Ives",
+      "x": 949,
+      "y": 427,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Taga",
+      "x": 866,
+      "y": 387,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Vestallas",
+      "x": 739,
+      "y": 431,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Milos",
+      "x": 686,
+      "y": 490,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": true
+    },
+    {
+      "name": "Denbar",
+      "x": 753,
+      "y": 548,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Spica",
+      "x": 849,
+      "y": 557,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "St. Loris",
+      "x": 874,
+      "y": 587,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Indicass",
+      "x": 766,
+      "y": 627,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Maladar",
+      "x": 977,
+      "y": 620,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Tantara",
+      "x": 933,
+      "y": 649,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Ambergrist",
+      "x": 831,
+      "y": 677,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Texlos",
+      "x": 988,
+      "y": 763,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Warlock",
+      "x": 1039,
+      "y": 677,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Tallin",
+      "x": 1039,
+      "y": 730,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Teng",
+      "x": 1085,
+      "y": 759,
+      "faction": "stives",
+      "factionColor": "#40e0d0",
+      "factionName": "Сент-Ивское Объединение",
+      "onFire": false
+    },
+    {
+      "name": "Ingersol",
+      "x": 328,
+      "y": 184,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Bandora",
+      "x": 433,
+      "y": 214,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Capella",
+      "x": 573,
+      "y": 183,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "No Return",
+      "x": 676,
+      "y": 214,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Randar",
+      "x": 706,
+      "y": 204,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Minnacora",
+      "x": 805,
+      "y": 177,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Ares",
+      "x": 902,
+      "y": 195,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Necromo",
+      "x": 916,
+      "y": 274,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Capricorn III",
+      "x": 850,
+      "y": 267,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "New Sagan",
+      "x": 820,
+      "y": 216,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Relevow",
+      "x": 755,
+      "y": 278,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Aldertaine",
+      "x": 605,
+      "y": 294,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Geifer",
+      "x": 568,
+      "y": 266,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Cordiagr",
+      "x": 498,
+      "y": 294,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Masterson",
+      "x": 366,
+      "y": 264,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Propus",
+      "x": 291,
+      "y": 260,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Eom",
+      "x": 241,
+      "y": 297,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Boardwalk",
+      "x": 270,
+      "y": 331,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Kashilla",
+      "x": 346,
+      "y": 342,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Gei-fu",
+      "x": 682,
+      "y": 340,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Jasmine",
+      "x": 172,
+      "y": 358,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Kurragin",
+      "x": 370,
+      "y": 364,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Exedor",
+      "x": 275,
+      "y": 389,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Ovan",
+      "x": 531,
+      "y": 379,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Overton",
+      "x": 616,
+      "y": 391,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Calpaca",
+      "x": 233,
+      "y": 431,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Preston",
+      "x": 427,
+      "y": 425,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Glasgow",
+      "x": 516,
+      "y": 435,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Krin",
+      "x": 306,
+      "y": 467,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Pella II",
+      "x": 175,
+      "y": 501,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Harloc",
+      "x": 597,
+      "y": 486,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Sian",
+      "x": 392,
+      "y": 509,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Bentley",
+      "x": 302,
+      "y": 540,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Hexare",
+      "x": 529,
+      "y": 535,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Imalda",
+      "x": 524,
+      "y": 577,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "New Westin",
+      "x": 570,
+      "y": 587,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Frondas",
+      "x": 251,
+      "y": 620,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Fronde",
+      "x": 321,
+      "y": 643,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Castrovia",
+      "x": 429,
+      "y": 648,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Decus",
+      "x": 610,
+      "y": 642,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Hustaing",
+      "x": 667,
+      "y": 609,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Purvo",
+      "x": 693,
+      "y": 684,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Altorra",
+      "x": 333,
+      "y": 710,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Claxton",
+      "x": 440,
+      "y": 715,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Carmen",
+      "x": 514,
+      "y": 715,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Sendalor",
+      "x": 604,
+      "y": 730,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Ito",
+      "x": 394,
+      "y": 780,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    },
+    {
+      "name": "Housekarle",
+      "x": 542,
+      "y": 787,
+      "faction": "capellan",
+      "factionColor": "#008000",
+      "factionName": "Капелланская Конфедерация",
+      "onFire": false
+    }
+  ],
+  "lastSaved": "2026-06-19T18:19:42.7550226+03:00"
+}

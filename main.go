@@ -1,528 +1,160 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
-	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 )
 
-// Структуры данных
+//go:embed static/index.html
+var staticFS embed.FS
+
 type GameState struct {
-	Planets     []Planet            `json:"planets"`
-	WarRecords  []WarRecord         `json:"warRecords"`
-	Players     []Player            `json:"players"`
-	PlayerStats map[int]PlayerStats `json:"playerStats"`
-	LastSaved   time.Time           `json:"lastSaved"`
+	Planets   []Planet  `json:"planets"`
+	LastSaved time.Time `json:"lastSaved"`
 }
 
 type Planet struct {
-	Name               string    `json:"name"`
-	X                  int       `json:"x"`
-	Y                  int       `json:"y"`
-	Faction            string    `json:"faction"`
-	FactionColor       string    `json:"factionColor"`
-	FactionName        string    `json:"factionName"`
-	Balance            int       `json:"balance"`
-	IsBorderPlanet     bool      `json:"isBorderPlanet"`
-	Missions           []Mission `json:"missions"`
-	IsNeutral          bool      `json:"isNeutral"`
-	OriginalFaction    string    `json:"originalFaction"`
-	CurrentFactionName string    `json:"currentFactionName"`
+	Name         string `json:"name"`
+	X            int    `json:"x"`
+	Y            int    `json:"y"`
+	Faction      string `json:"faction"`
+	FactionColor string `json:"factionColor"`
+	FactionName  string `json:"factionName"`
+	OnFire       bool   `json:"onFire"`
 }
 
-type Mission struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-}
-
-type WarRecord struct {
-	ID          string    `json:"id"`
-	Timestamp   time.Time `json:"timestamp"`
-	Type        string    `json:"type"`
-	Planet      string    `json:"planet"`
-	UserID      int       `json:"userId"`
-	UserName    string    `json:"userName"`
-	UserRank    string    `json:"userRank"`
-	UserFaction string    `json:"userFaction"`
-	Details     string    `json:"details"`
-}
-
-type Player struct {
-	ID      int    `json:"id"`
-	Name    string `json:"name"`
-	Rank    string `json:"rank"`
-	Faction string `json:"faction"`
-}
-
-type PlayerStats struct {
-	Victories    int       `json:"victories"` // Хранится как целое * 100
-	Defeats      int       `json:"defeats"`
-	Draws        int       `json:"draws"`
-	TotalGames   int       `json:"totalGames"`
-	LastActivity time.Time `json:"lastActivity"`
-	LastGame     LastGame  `json:"lastGame"`
-}
-
-type LastGame struct {
-	Date    time.Time `json:"date"`
-	Planet  string    `json:"planet"`
-	Result  string    `json:"result"`
-	Points  int       `json:"points"`
-	Mission string    `json:"mission"`
+type UpdatePlanetRequest struct {
+	Name    string  `json:"name"`
+	Faction *string `json:"faction,omitempty"`
+	OnFire  *bool   `json:"onFire,omitempty"`
 }
 
 var (
-	gameState = &GameState{
-		Planets:     make([]Planet, 0),
-		WarRecords:  make([]WarRecord, 0),
-		Players:     make([]Player, 0),
-		PlayerStats: make(map[int]PlayerStats),
-		LastSaved:   time.Now(),
-	}
+	gameState = &GameState{Planets: make([]Planet, 0)}
 	stateFile = "data/game_state.json"
 	mu        sync.RWMutex
 )
 
 func main() {
-	fmt.Println("🚀 Alpha Strike Server запускается...")
-	fmt.Println("🌐 Порт: 8121")
-	fmt.Println("📂 Текущая директория:", getCurrentDir())
+	appDir := getAppDir()
+	if err := os.Chdir(appDir); err != nil {
+		log.Fatalf("не удалось перейти в папку приложения: %v", err)
+	}
 
-	// Инициализируем генератор случайных чисел
-	rand.Seed(time.Now().UnixNano())
+	dataDir := filepath.Join(appDir, "data")
+	stateFile = filepath.Join(dataDir, "game_state.json")
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Fatalf("не удалось создать папку data: %v", err)
+	}
 
-	// Создаем необходимые директории
-	createDirs()
-
-	// Загрузка данных
 	loadGameState()
 
-	// Настройка маршрутов
-	setupRoutes()
+	http.HandleFunc("/", serveIndex)
+	http.HandleFunc("/api/state", handleState)
+	http.HandleFunc("/api/planet", updatePlanet)
+	http.HandleFunc("/api/reset", resetGame)
 
-	// Автосохранение
-	go autoSave()
+	port := getenv("PORT", "8121")
+	url := "http://localhost:" + port
 
-	// Запуск сервера
-	port := getEnv("PORT", "8121")
-	fmt.Printf("✅ Сервер запущен: http://localhost:%s\n", port)
-	fmt.Println("📁 Статические файлы из: static/")
+	fmt.Println("========================================")
+	fmt.Println("  Alpha Strike Map")
+	fmt.Println("  " + url)
+	fmt.Println("========================================")
+	fmt.Println()
+	fmt.Println("Данные сохраняются в:", stateFile)
+	fmt.Println("Закройте это окно, чтобы остановить сервер.")
+	fmt.Println()
+
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		openBrowser(url)
+	}()
 
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
-func setupRoutes() {
-	// Основной маршрут
-	http.HandleFunc("/", serveIndex)
-
-	// API маршруты
-	http.HandleFunc("/api/state", getState)
-	http.HandleFunc("/api/save", saveState)
-	http.HandleFunc("/api/complete-mission", completeMission)
-	http.HandleFunc("/api/change-faction", changeFaction)
-	http.HandleFunc("/api/reset", resetGame)
-	http.HandleFunc("/api/export", exportData)
-	http.HandleFunc("/api/import", importData)
-	http.HandleFunc("/api/add-player", addPlayer)
-	http.HandleFunc("/api/remove-player", removePlayer)
-
-	// Статические файлы
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+func getAppDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return filepath.Dir(exe)
 }
 
-func addPlayer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
 	}
-
-	var req struct {
-		Name    string `json:"name"`
-		Rank    string `json:"rank"`
-		Faction string `json:"faction"`
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Откройте в браузере вручную:", url)
 	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
-		return
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	// Генерируем новый ID
-	newID := 1
-	for _, player := range gameState.Players {
-		if player.ID >= newID {
-			newID = player.ID + 1
-		}
-	}
-
-	// Создаем нового игрока
-	newPlayer := Player{
-		ID:      newID,
-		Name:    req.Name,
-		Rank:    req.Rank,
-		Faction: req.Faction,
-	}
-
-	// Добавляем в список
-	gameState.Players = append(gameState.Players, newPlayer)
-
-	// Создаем статистику для нового игрока
-	gameState.PlayerStats[newID] = PlayerStats{
-		Victories:    0,
-		Defeats:      0,
-		Draws:        0,
-		TotalGames:   0,
-		LastActivity: time.Now(),
-		LastGame:     LastGame{},
-	}
-
-	// Записываем в историю
-	record := WarRecord{
-		ID:          fmt.Sprintf("%d", time.Now().UnixNano()),
-		Timestamp:   time.Now(),
-		Type:        "PLAYER_ADDED",
-		Planet:      "Система",
-		UserID:      0,
-		UserName:    "Система",
-		UserRank:    "Администратор",
-		UserFaction: "system",
-		Details: fmt.Sprintf("Добавлен новый игрок: %s (%s), фракция: %s",
-			req.Name, req.Rank, getFactionName(req.Faction)),
-	}
-
-	gameState.WarRecords = append(gameState.WarRecords, record)
-	gameState.LastSaved = time.Now()
-
-	// Сохраняем изменения
-	saveGameState()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"player":  newPlayer,
-		"message": "Игрок успешно добавлен",
-	})
-}
-
-func removePlayer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		PlayerID int `json:"playerId"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
-		return
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	// Ищем игрока
-	playerIndex := -1
-	var playerName string
-	for i, player := range gameState.Players {
-		if player.ID == req.PlayerID {
-			playerIndex = i
-			playerName = player.Name
-			break
-		}
-	}
-
-	if playerIndex == -1 {
-		http.Error(w, "Игрок не найден", http.StatusNotFound)
-		return
-	}
-
-	// Удаляем игрока из списка
-	gameState.Players = append(gameState.Players[:playerIndex], gameState.Players[playerIndex+1:]...)
-
-	// Удаляем статистику игрока
-	delete(gameState.PlayerStats, req.PlayerID)
-
-	// Записываем в историю
-	record := WarRecord{
-		ID:          fmt.Sprintf("%d", time.Now().UnixNano()),
-		Timestamp:   time.Now(),
-		Type:        "PLAYER_REMOVED",
-		Planet:      "Система",
-		UserID:      0,
-		UserName:    "Система",
-		UserRank:    "Администратор",
-		UserFaction: "system",
-		Details:     fmt.Sprintf("Удален игрок: %s (ID: %d)", playerName, req.PlayerID),
-	}
-
-	gameState.WarRecords = append(gameState.WarRecords, record)
-	gameState.LastSaved = time.Now()
-
-	// Сохраняем изменения
-	saveGameState()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": fmt.Sprintf("Игрок %s успешно удален", playerName),
-	})
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "static/index.html")
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := staticFS.ReadFile("static/index.html")
+	if err != nil {
+		http.Error(w, "index not found", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(data)
 }
 
-func getState(w http.ResponseWriter, r *http.Request) {
-	mu.RLock()
-	defer mu.RUnlock()
-
+func handleState(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	json.NewEncoder(w).Encode(gameState)
+	switch r.Method {
+	case http.MethodGet:
+		mu.RLock()
+		json.NewEncoder(w).Encode(gameState)
+		mu.RUnlock()
+	case http.MethodOptions:
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
-func saveState(w http.ResponseWriter, r *http.Request) {
-	if err := saveGameState(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
+func updatePlanet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":   true,
-		"message":   "Данные сохранены",
-		"lastSaved": gameState.LastSaved,
-	})
-}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-// Вычисляет доли побед для игроков (умноженные на 100 для хранения как целых)
-func calculateWinShares(participants []struct {
-	ID      int    `json:"id"`
-	Faction string `json:"faction"`
-}, winningFaction string) map[int]int {
-	// Подсчитываем количество игроков победившей фракции
-	winningCount := 0
-	for _, p := range participants {
-		if p.Faction == winningFaction {
-			winningCount++
-		}
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
-
-	// Если нет победителей, возвращаем пустую карту
-	if winningCount == 0 {
-		return make(map[int]int)
-	}
-
-	// Вычисляем долю для каждого победителя (умножаем на 100 для целочисленного хранения)
-	// Округляем до 2 знаков после запятой
-	winShare := int(math.Round(100.0 / float64(winningCount)))
-	shares := make(map[int]int)
-
-	for _, p := range participants {
-		if p.Faction == winningFaction {
-			shares[p.ID] = winShare
-		}
-	}
-
-	return shares
-}
-
-func completeMission(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req struct {
-		PlanetName   string `json:"planetName"`
-		MissionIndex int    `json:"missionIndex"`
-		Participants []struct {
-			ID      int    `json:"id"`
-			Faction string `json:"faction"`
-		} `json:"participants"`
-		Points         int    `json:"points"`
-		WinningFaction string `json:"winningFaction"`
-		Description    string `json:"description"`
-	}
-
+	var req UpdatePlanetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
-		return
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	// Находим планету
-	planetIndex := -1
-	for i, p := range gameState.Planets {
-		if p.Name == req.PlanetName {
-			planetIndex = i
-			break
-		}
-	}
-
-	if planetIndex == -1 {
-		http.Error(w, "Планета не найдена", http.StatusNotFound)
-		return
-	}
-
-	planet := &gameState.Planets[planetIndex]
-
-	// Проверяем миссию
-	if len(planet.Missions) <= req.MissionIndex {
-		http.Error(w, "Миссия не найдена", http.StatusNotFound)
-		return
-	}
-
-	// Обновляем баланс
-	attackerFaction := getAttackerFaction(planet.Faction)
-	if req.WinningFaction == planet.Faction {
-		// Защитники выиграли
-		planet.Balance = max(0, planet.Balance-req.Points)
-	} else if req.WinningFaction == attackerFaction {
-		// Атакующие выиграли
-		planet.Balance = min(500, planet.Balance+req.Points)
-
-		// Проверяем захват
-		if planet.Balance >= 500 {
-			planet.Faction = attackerFaction
-			planet.Balance = 0
-			planet.FactionColor = getFactionColor(attackerFaction)
-			planet.FactionName = getFactionName(attackerFaction)
-			planet.CurrentFactionName = getFactionName(attackerFaction)
-			planet.IsNeutral = false
-			planet.Missions = generateRandomMissions(3)
-		}
-	}
-
-	// Удаляем выполненную миссию
-	completedMission := planet.Missions[req.MissionIndex]
-	planet.Missions = append(planet.Missions[:req.MissionIndex],
-		planet.Missions[req.MissionIndex+1:]...)
-
-	// Добавляем новую случайную миссию если есть место
-	if planet.IsBorderPlanet && len(planet.Missions) < 3 {
-		// Получаем список уже существующих миссий
-		existingMissions := make(map[string]bool)
-		for _, m := range planet.Missions {
-			existingMissions[m.Name] = true
-		}
-
-		// Генерируем новую уникальную миссию
-		newMission := getRandomMission()
-		// Проверяем, что миссия не повторяется (максимум 5 попыток)
-		attempts := 0
-		for existingMissions[newMission] && attempts < 5 {
-			newMission = getRandomMission()
-			attempts++
-		}
-
-		planet.Missions = append(planet.Missions, Mission{
-			Name:   newMission,
-			Status: "active",
-		})
-	}
-
-	// Вычисляем доли побед для участников (умноженные на 100)
-	winShares := calculateWinShares(req.Participants, req.WinningFaction)
-
-	// Обновляем статистику игроков
-	for _, participant := range req.Participants {
-		stats, exists := gameState.PlayerStats[participant.ID]
-		if !exists {
-			// Создаем новую статистику если не существует
-			stats = PlayerStats{
-				Victories:    0,
-				Defeats:      0,
-				Draws:        0,
-				TotalGames:   0,
-				LastActivity: time.Now(),
-				LastGame:     LastGame{},
-			}
-		}
-
-		stats.TotalGames++
-		stats.LastActivity = time.Now()
-
-		result := "DEFEAT"
-		if participant.Faction == req.WinningFaction {
-			// Добавляем долю победы (уже умноженную на 100)
-			if share, hasShare := winShares[participant.ID]; hasShare {
-				stats.Victories += share
-			}
-			result = "VICTORY"
-		} else {
-			// Поражение - целое число
-			stats.Defeats++
-		}
-
-		stats.LastGame = LastGame{
-			Date:    time.Now(),
-			Planet:  req.PlanetName,
-			Result:  result,
-			Points:  req.Points,
-			Mission: completedMission.Name,
-		}
-
-		gameState.PlayerStats[participant.ID] = stats
-	}
-
-	// Записываем в историю
-	record := WarRecord{
-		ID:          fmt.Sprintf("%d", time.Now().UnixNano()),
-		Timestamp:   time.Now(),
-		Type:        "MISSION_COMPLETE",
-		Planet:      req.PlanetName,
-		UserID:      req.Participants[0].ID,
-		UserName:    "Игрок " + fmt.Sprint(req.Participants[0].ID),
-		UserRank:    "Участник",
-		UserFaction: req.Participants[0].Faction,
-		Details:     fmt.Sprintf("Миссия: %s, Очки: %d, Победитель: %s, %s", completedMission.Name, req.Points, req.WinningFaction, req.Description),
-	}
-
-	gameState.WarRecords = append(gameState.WarRecords, record)
-	gameState.LastSaved = time.Now()
-
-	// Сохраняем состояние
-	saveGameState()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":   true,
-		"planet":    planet,
-		"record":    record,
-		"winShares": winShares, // Для отладки
-	})
-}
-
-func changeFaction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		PlanetName string `json:"planetName"`
-		NewFaction string `json:"newFaction"`
-		Reason     string `json:"reason"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Неверный формат запроса", http.StatusBadRequest)
+		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
@@ -530,129 +162,55 @@ func changeFaction(w http.ResponseWriter, r *http.Request) {
 	defer mu.Unlock()
 
 	for i := range gameState.Planets {
-		if gameState.Planets[i].Name == req.PlanetName {
-			oldFaction := gameState.Planets[i].Faction
+		if gameState.Planets[i].Name != req.Name {
+			continue
+		}
 
-			gameState.Planets[i].Faction = req.NewFaction
-			gameState.Planets[i].FactionColor = getFactionColor(req.NewFaction)
-			gameState.Planets[i].FactionName = getFactionName(req.NewFaction)
-			gameState.Planets[i].CurrentFactionName = getFactionName(req.NewFaction)
-			gameState.Planets[i].Balance = 0
-			gameState.Planets[i].IsNeutral = !(req.NewFaction == "stives" || req.NewFaction == "capellan")
-			gameState.Planets[i].OriginalFaction = oldFaction
+		if req.Faction != nil {
+			gameState.Planets[i].Faction = *req.Faction
+			gameState.Planets[i].FactionColor = factionColor(*req.Faction)
+			gameState.Planets[i].FactionName = factionName(*req.Faction)
+		}
+		if req.OnFire != nil {
+			gameState.Planets[i].OnFire = *req.OnFire
+		}
 
-			if req.NewFaction == "stives" || req.NewFaction == "capellan" {
-				gameState.Planets[i].Missions = generateRandomMissions(3)
-				gameState.Planets[i].IsBorderPlanet = true
-			} else {
-				gameState.Planets[i].Missions = []Mission{}
-				gameState.Planets[i].IsBorderPlanet = false
-			}
-
-			// Записываем в историю
-			record := WarRecord{
-				ID:          fmt.Sprintf("%d", time.Now().UnixNano()),
-				Timestamp:   time.Now(),
-				Type:        "CHANGE_FACTION",
-				Planet:      req.PlanetName,
-				UserID:      0,
-				UserName:    "Система",
-				UserRank:    "Администратор",
-				UserFaction: req.NewFaction,
-				Details: fmt.Sprintf("Фракция изменена: %s → %s. Причина: %s",
-					getFactionName(oldFaction), getFactionName(req.NewFaction), req.Reason),
-			}
-
-			gameState.WarRecords = append(gameState.WarRecords, record)
-			gameState.LastSaved = time.Now()
-
-			// Сохраняем состояние
-			saveGameState()
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"success": true,
-				"planet":  gameState.Planets[i],
-				"record":  record,
-			})
+		gameState.LastSaved = time.Now()
+		if err := saveGameStateLocked(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		json.NewEncoder(w).Encode(gameState.Planets[i])
+		return
 	}
 
-	http.Error(w, "Планета не найдена", http.StatusNotFound)
+	http.Error(w, "planet not found", http.StatusNotFound)
 }
 
 func resetGame(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	mu.Lock()
 	initializeGameState()
 	mu.Unlock()
 
-	saveGameState()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Игра сброшена к начальному состоянию",
-	})
-}
-
-func exportData(w http.ResponseWriter, r *http.Request) {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", "attachment; filename=alpha_strike_export.json")
-
-	json.NewEncoder(w).Encode(gameState)
-}
-
-func importData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+	if err := saveGameState(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var newState GameState
-	if err := json.NewDecoder(r.Body).Decode(&newState); err != nil {
-		http.Error(w, "Неверный формат данных", http.StatusBadRequest)
-		return
-	}
-
-	mu.Lock()
-	gameState = &newState
-	gameState.LastSaved = time.Now()
-	mu.Unlock()
-
-	saveGameState()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Данные успешно импортированы",
-	})
-}
-
-// Вспомогательные функции
-func createDirs() {
-	os.MkdirAll("data", 0755)
-	os.MkdirAll("static", 0755)
-}
-
-func getCurrentDir() string {
-	dir, _ := os.Getwd()
-	return dir
-}
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
+	json.NewEncoder(w).Encode(map[string]any{"success": true})
 }
 
 func loadGameState() {
 	if _, err := os.Stat(stateFile); os.IsNotExist(err) {
-		fmt.Println("📂 Создаем начальное состояние игры...")
 		initializeGameState()
 		saveGameState()
 		return
@@ -660,362 +218,175 @@ func loadGameState() {
 
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
-		log.Printf("❌ Ошибка загрузки данных: %v", err)
+		log.Printf("load error: %v", err)
 		initializeGameState()
 		return
 	}
 
-	if err := json.Unmarshal(data, &gameState); err != nil {
-		log.Printf("❌ Ошибка парсинга данных: %v", err)
+	var loaded GameState
+	if err := json.Unmarshal(data, &loaded); err != nil || len(loaded.Planets) == 0 {
+		log.Printf("parse error or empty state, reinitializing")
 		initializeGameState()
 		return
 	}
 
-	fmt.Printf("✅ Загружено: %d планет, %d записей, %d игроков\n",
-		len(gameState.Planets), len(gameState.WarRecords), len(gameState.Players))
+	mu.Lock()
+	gameState = &loaded
+	mu.Unlock()
+	fmt.Printf("loaded %d planets\n", len(gameState.Planets))
 }
 
 func saveGameState() error {
 	mu.RLock()
 	defer mu.RUnlock()
+	return saveGameStateLocked()
+}
 
+func saveGameStateLocked() error {
 	gameState.LastSaved = time.Now()
-
 	data, err := json.MarshalIndent(gameState, "", "  ")
 	if err != nil {
 		return err
 	}
-
 	return os.WriteFile(stateFile, data, 0644)
 }
 
-func autoSave() {
-	for {
-		time.Sleep(5 * time.Minute)
-		if err := saveGameState(); err != nil {
-			log.Printf("❌ Ошибка автосохранения: %v", err)
-		} else {
-			fmt.Printf("💾 Данные сохранены (%s)\n", time.Now().Format("15:04:05"))
-		}
-	}
-}
-
-// Инициализация планет из frontend данных
-func initializePlanetsFromFrontend() []Planet {
-	// Точные данные из frontend index.html (массив planets)
-	frontendPlanets := []struct {
-		Name    string
-		X       int
-		Y       int
-		Faction string
-	}{
-		// Дом Дэвион (бронзовые)
-		{Name: "Campertown", X: 321, Y: 112, Faction: "davion"},
-		{Name: "Tsinghai", X: 335, Y: 71, Faction: "davion"},
-		{Name: "Chamdo", X: 412, Y: 76, Faction: "davion"},
-		{Name: "Lesalles", X: 406, Y: 143, Faction: "davion"},
-		{Name: "Raballa", X: 481, Y: 102, Faction: "davion"},
-		{Name: "Bora", X: 580, Y: 116, Faction: "davion"},
-		{Name: "Old Kentucky", X: 376, Y: 25, Faction: "davion"},
-		{Name: "Wazan", X: 398, Y: 27, Faction: "davion"},
-		{Name: "Quemoy", X: 606, Y: 89, Faction: "davion"},
-		{Name: "Sarmaxa", X: 657, Y: 134, Faction: "davion"},
-		{Name: "Sarna", X: 671, Y: 90, Faction: "davion"},
-		{Name: "Kaifeng", X: 768, Y: 100, Faction: "davion"},
-		{Name: "Truth", X: 805, Y: 116, Faction: "davion"},
-		{Name: "Tsingtao", X: 887, Y: 91, Faction: "davion"},
-		{Name: "Lee", X: 1028, Y: 90, Faction: "davion"},
-		{Name: "Cammal", X: 1000, Y: 144, Faction: "davion"},
-		{Name: "Gallitzin", X: 1090, Y: 130, Faction: "davion"},
-		{Name: "Monhegan", X: 1029, Y: 253, Faction: "davion"},
-		{Name: "Daniels", X: 1067, Y: 319, Faction: "davion"},
-		{Name: "Alcyone", X: 1097, Y: 331, Faction: "davion"},
-		{Name: "Shoreham", X: 1073, Y: 447, Faction: "davion"},
-		{Name: "Weekapaung", X: 974, Y: 491, Faction: "davion"},
-		{Name: "Scituate", X: 856, Y: 459, Faction: "davion"},
-		{Name: "Kittery", X: 831, Y: 479, Faction: "davion"},
-		{Name: "Gurnet", X: 888, Y: 524, Faction: "davion"},
-		{Name: "Mentasta", X: 1016, Y: 559, Faction: "davion"},
-		{Name: "Beid", X: 1071, Y: 597, Faction: "davion"},
-		{Name: "Ziliang", X: 743, Y: 715, Faction: "davion"},
-		{Name: "Uravan", X: 804, Y: 712, Faction: "davion"},
-		{Name: "Velhas", X: 750, Y: 790, Faction: "davion"},
-		{Name: "Immenstadt", X: 824, Y: 783, Faction: "davion"},
-		{Name: "Weatogue", X: 919, Y: 786, Faction: "davion"},
-
-		// Содружество Свободных Миров (фиолетовые)
-		{Name: "Calloway IV", X: 15, Y: 343, Faction: "freeWorlds"},
-		{Name: "Les Halles", X: 120, Y: 298, Faction: "freeWorlds"},
-		{Name: "Anegasaki", X: 66, Y: 441, Faction: "freeWorlds"},
-		{Name: "Shuen Wan", X: 98, Y: 465, Faction: "freeWorlds"},
-		{Name: "Ipswich", X: 81, Y: 535, Faction: "freeWorlds"},
-		{Name: "Goodna", X: 182, Y: 575, Faction: "freeWorlds"},
-		{Name: "Iknogoro", X: 73, Y: 623, Faction: "freeWorlds"},
-		{Name: "Cronulla", X: 183, Y: 640, Faction: "freeWorlds"},
-		{Name: "Kujari", X: 201, Y: 720, Faction: "freeWorlds"},
-
-		// Сент-Ивское Объединение (бирюзовые)
-		{Name: "Brighton", X: 810, Y: 347, Faction: "stives"},
-		{Name: "Nashuar", X: 911, Y: 356, Faction: "stives"},
-		{Name: "Armaxa", X: 958, Y: 377, Faction: "stives"},
-		{Name: "St. Ives", X: 949, Y: 427, Faction: "stives"},
-		{Name: "Taga", X: 866, Y: 387, Faction: "stives"},
-		{Name: "Vestallas", X: 739, Y: 431, Faction: "stives"},
-		{Name: "Milos", X: 686, Y: 490, Faction: "stives"},
-		{Name: "Denbar", X: 753, Y: 548, Faction: "stives"},
-		{Name: "Spica", X: 849, Y: 557, Faction: "stives"},
-		{Name: "St. Loris", X: 874, Y: 587, Faction: "stives"},
-		{Name: "Indicass", X: 766, Y: 627, Faction: "stives"},
-		{Name: "Maladar", X: 977, Y: 620, Faction: "stives"},
-		{Name: "Tantara", X: 933, Y: 649, Faction: "stives"},
-		{Name: "Ambergrist", X: 831, Y: 677, Faction: "stives"},
-		{Name: "Texlos", X: 988, Y: 763, Faction: "stives"},
-		{Name: "Warlock", X: 1039, Y: 677, Faction: "stives"},
-		{Name: "Tallin", X: 1039, Y: 730, Faction: "stives"},
-		{Name: "Teng", X: 1085, Y: 759, Faction: "stives"},
-
-		// Капелланская Конфедерация (зеленые)
-		{Name: "Ingersol", X: 328, Y: 184, Faction: "capellan"},
-		{Name: "Bandora", X: 433, Y: 214, Faction: "capellan"},
-		{Name: "Capella", X: 573, Y: 183, Faction: "capellan"},
-		{Name: "No Return", X: 676, Y: 214, Faction: "capellan"},
-		{Name: "Randar", X: 706, Y: 204, Faction: "capellan"},
-		{Name: "Minnacora", X: 805, Y: 177, Faction: "capellan"},
-		{Name: "Ares", X: 902, Y: 195, Faction: "capellan"},
-		{Name: "Necromo", X: 916, Y: 274, Faction: "capellan"},
-		{Name: "Capricorn III", X: 850, Y: 267, Faction: "capellan"},
-		{Name: "New Sagan", X: 820, Y: 216, Faction: "capellan"},
-		{Name: "Relevow", X: 755, Y: 278, Faction: "capellan"},
-		{Name: "Aldertaine", X: 605, Y: 294, Faction: "capellan"},
-		{Name: "Geifer", X: 568, Y: 266, Faction: "capellan"},
-		{Name: "Cordiagr", X: 498, Y: 294, Faction: "capellan"},
-		{Name: "Masterson", X: 366, Y: 264, Faction: "capellan"},
-		{Name: "Propus", X: 291, Y: 260, Faction: "capellan"},
-		{Name: "Eom", X: 241, Y: 297, Faction: "capellan"},
-		{Name: "Boardwalk", X: 270, Y: 331, Faction: "capellan"},
-		{Name: "Kashilla", X: 346, Y: 342, Faction: "capellan"},
-		{Name: "Gei-fu", X: 682, Y: 340, Faction: "capellan"},
-		{Name: "Jasmine", X: 172, Y: 358, Faction: "capellan"},
-		{Name: "Kurragin", X: 370, Y: 364, Faction: "capellan"},
-		{Name: "Exedor", X: 275, Y: 389, Faction: "capellan"},
-		{Name: "Ovan", X: 531, Y: 379, Faction: "capellan"},
-		{Name: "Overton", X: 616, Y: 391, Faction: "capellan"},
-		{Name: "Calpaca", X: 233, Y: 431, Faction: "capellan"},
-		{Name: "Preston", X: 427, Y: 425, Faction: "capellan"},
-		{Name: "Glasgow", X: 516, Y: 435, Faction: "capellan"},
-		{Name: "Krin", X: 306, Y: 467, Faction: "capellan"},
-		{Name: "Pella II", X: 175, Y: 501, Faction: "capellan"},
-		{Name: "Harloc", X: 597, Y: 486, Faction: "capellan"},
-		{Name: "Sian", X: 392, Y: 509, Faction: "capellan"},
-		{Name: "Bentley", X: 302, Y: 540, Faction: "capellan"},
-		{Name: "Hexare", X: 529, Y: 535, Faction: "capellan"},
-		{Name: "Imalda", X: 524, Y: 577, Faction: "capellan"},
-		{Name: "New Westin", X: 570, Y: 587, Faction: "capellan"},
-		{Name: "Frondas", X: 251, Y: 620, Faction: "capellan"},
-		{Name: "Fronde", X: 321, Y: 643, Faction: "capellan"},
-		{Name: "Castrovia", X: 429, Y: 648, Faction: "capellan"},
-		{Name: "Decus", X: 610, Y: 642, Faction: "capellan"},
-		{Name: "Hustaing", X: 667, Y: 609, Faction: "capellan"},
-		{Name: "Purvo", X: 693, Y: 684, Faction: "capellan"},
-		{Name: "Altorra", X: 333, Y: 710, Faction: "capellan"},
-		{Name: "Claxton", X: 440, Y: 715, Faction: "capellan"},
-		{Name: "Carmen", X: 514, Y: 715, Faction: "capellan"},
-		{Name: "Sendalor", X: 604, Y: 730, Faction: "capellan"},
-		{Name: "Ito", X: 394, Y: 780, Faction: "capellan"},
-		{Name: "Housekarle", X: 542, Y: 787, Faction: "capellan"},
-	}
-
-	planets := make([]Planet, 0, len(frontendPlanets))
-
-	for _, fp := range frontendPlanets {
-		isBorderPlanet := calculateIsBorderPlanet(fp, frontendPlanets)
-
-		planet := Planet{
-			Name:               fp.Name,
-			X:                  fp.X,
-			Y:                  fp.Y,
-			Faction:            fp.Faction,
-			FactionColor:       getFactionColor(fp.Faction),
-			FactionName:        getFactionName(fp.Faction),
-			Balance:            0,
-			IsBorderPlanet:     isBorderPlanet,
-			Missions:           []Mission{},
-			IsNeutral:          !(fp.Faction == "stives" || fp.Faction == "capellan"),
-			OriginalFaction:    fp.Faction,
-			CurrentFactionName: getFactionName(fp.Faction),
-		}
-
-		// Генерируем СЛУЧАЙНЫЕ миссии для пограничных планет St.Ives и Capellan
-		if isBorderPlanet && (fp.Faction == "stives" || fp.Faction == "capellan") {
-			planet.Missions = generateRandomMissions(3)
-		}
-
-		planets = append(planets, planet)
-	}
-
-	return planets
-}
-
-// Вычисляем, является ли планета пограничной
-func calculateIsBorderPlanet(planet struct {
-	Name    string
-	X       int
-	Y       int
-	Faction string
-}, allPlanets []struct {
-	Name    string
-	X       int
-	Y       int
-	Faction string
-}) bool {
-	// Планета считается пограничной, если она принадлежит St.Ives или Capellan
-	// и находится рядом с планетой вражеской фракции
-	if planet.Faction != "stives" && planet.Faction != "capellan" {
-		return false
-	}
-
-	enemyFaction := "stives"
-	if planet.Faction == "stives" {
-		enemyFaction = "capellan"
-	}
-
-	const borderDistance = 150
-
-	for _, otherPlanet := range allPlanets {
-		if otherPlanet.Faction != enemyFaction {
-			continue
-		}
-
-		dx := planet.X - otherPlanet.X
-		dy := planet.Y - otherPlanet.Y
-		distance := math.Sqrt(float64(dx*dx + dy*dy))
-
-		if distance <= borderDistance {
-			return true
-		}
-	}
-
-	return false
-}
-
 func initializeGameState() {
-	// Инициализация планет из frontend данных
-	gameState.Planets = initializePlanetsFromFrontend()
-
-	// Игроки
-	gameState.Players = []Player{
-		{ID: 1, Name: "Мишкин Артём", Rank: "Командир Нова", Faction: "stives"},
-		{ID: 2, Name: "Андрей Павлов", Rank: "Сао-Вей", Faction: "capellan"},
-		{ID: 3, Name: "Жеребцов Михаил (Микка)", Rank: "Рядовой", Faction: "capellan"},
-		{ID: 4, Name: "Макушкин Александр", Rank: "Шиа-Бен-Бинг", Faction: "capellan"},
-		{ID: 5, Name: "Boris Leonov", Rank: "Командир Нова", Faction: "stives"},
-		{ID: 6, Name: "Олег Пачев", Rank: "Звёздный Командир", Faction: "stives"},
-		{ID: 7, Name: "Архан", Rank: "Адепт", Faction: "stives"},
-		{ID: 8, Name: "Сергей Протасов", Rank: "Сао-Вей", Faction: "capellan"},
-		{ID: 9, Name: "Леонид Черкасов", Rank: "Мехвоин", Faction: "stives"},
-		{ID: 10, Name: "Amardil", Rank: "Рядовой", Faction: "stives"},
-		{ID: 11, Name: "Tihiron Rrr (Данила)", Rank: "Рядовой", Faction: "capellan"},
-		{ID: 12, Name: "Шестериков Александр", Rank: "Мехвоин", Faction: "stives"},
-		{ID: 13, Name: "Шестерикова Таисия", Rank: "Шиа-Бен-Бинг", Faction: "capellan"},
-		{ID: 14, Name: "Андрей Шумов", Rank: "Сержант", Faction: "stives"},
-	}
-
-	// Инициализация статистики
-	gameState.PlayerStats = make(map[int]PlayerStats)
-	for _, player := range gameState.Players {
-		gameState.PlayerStats[player.ID] = PlayerStats{
-			Victories:    0,
-			Defeats:      0,
-			Draws:        0,
-			TotalGames:   0,
-			LastActivity: time.Now(),
-			LastGame:     LastGame{},
-		}
-	}
-
-	// Начальная запись
-	gameState.WarRecords = []WarRecord{{
-		ID:          "init",
-		Timestamp:   time.Now(),
-		Type:        "SYSTEM",
-		Planet:      "Вселенная",
-		UserID:      0,
-		UserName:    "Система",
-		UserRank:    "Администратор",
-		UserFaction: "system",
-		Details:     fmt.Sprintf("Система Alpha Strike инициализирована. Планет: %d", len(gameState.Planets)),
-	}}
-
+	gameState.Planets = buildPlanets()
 	gameState.LastSaved = time.Now()
 }
 
-// Генерация случайных уникальных миссий
-func generateRandomMissions(count int) []Mission {
-	missionsList := []string{
-		"Эвакуация груза",
-		"Контроль поля битвы",
-		"Уничтожение противника",
-		"Удержание позиции",
-		"Прорыв",
-		"Поиск и уничтожение",
-		"Захват сброшенного груза",
-		"Эскорт",
-		"Удержание боевых точек",
+func buildPlanets() []Planet {
+	raw := []struct {
+		Name    string
+		X, Y    int
+		Faction string
+	}{
+		{"Campertown", 321, 112, "davion"},
+		{"Tsinghai", 335, 71, "davion"},
+		{"Chamdo", 412, 76, "davion"},
+		{"Lesalles", 406, 143, "davion"},
+		{"Raballa", 481, 102, "davion"},
+		{"Bora", 580, 116, "davion"},
+		{"Old Kentucky", 376, 25, "davion"},
+		{"Wazan", 398, 27, "davion"},
+		{"Quemoy", 606, 89, "davion"},
+		{"Sarmaxa", 657, 134, "davion"},
+		{"Sarna", 671, 90, "davion"},
+		{"Kaifeng", 768, 100, "davion"},
+		{"Truth", 805, 116, "davion"},
+		{"Tsingtao", 887, 91, "davion"},
+		{"Lee", 1028, 90, "davion"},
+		{"Cammal", 1000, 144, "davion"},
+		{"Gallitzin", 1090, 130, "davion"},
+		{"Monhegan", 1029, 253, "davion"},
+		{"Daniels", 1067, 319, "davion"},
+		{"Alcyone", 1097, 331, "davion"},
+		{"Shoreham", 1073, 447, "davion"},
+		{"Weekapaung", 974, 491, "davion"},
+		{"Scituate", 856, 459, "davion"},
+		{"Kittery", 831, 479, "davion"},
+		{"Gurnet", 888, 524, "davion"},
+		{"Mentasta", 1016, 559, "davion"},
+		{"Beid", 1071, 597, "davion"},
+		{"Ziliang", 743, 715, "davion"},
+		{"Uravan", 804, 712, "davion"},
+		{"Velhas", 750, 790, "davion"},
+		{"Immenstadt", 824, 783, "davion"},
+		{"Weatogue", 919, 786, "davion"},
+		{"Calloway IV", 15, 343, "freeWorlds"},
+		{"Les Halles", 120, 298, "freeWorlds"},
+		{"Anegasaki", 66, 441, "freeWorlds"},
+		{"Shuen Wan", 98, 465, "freeWorlds"},
+		{"Ipswich", 81, 535, "freeWorlds"},
+		{"Goodna", 182, 575, "freeWorlds"},
+		{"Iknogoro", 73, 623, "freeWorlds"},
+		{"Cronulla", 183, 640, "freeWorlds"},
+		{"Kujari", 201, 720, "freeWorlds"},
+		{"Brighton", 810, 347, "stives"},
+		{"Nashuar", 911, 356, "stives"},
+		{"Armaxa", 958, 377, "stives"},
+		{"St. Ives", 949, 427, "stives"},
+		{"Taga", 866, 387, "stives"},
+		{"Vestallas", 739, 431, "stives"},
+		{"Milos", 686, 490, "stives"},
+		{"Denbar", 753, 548, "stives"},
+		{"Spica", 849, 557, "stives"},
+		{"St. Loris", 874, 587, "stives"},
+		{"Indicass", 766, 627, "stives"},
+		{"Maladar", 977, 620, "stives"},
+		{"Tantara", 933, 649, "stives"},
+		{"Ambergrist", 831, 677, "stives"},
+		{"Texlos", 988, 763, "stives"},
+		{"Warlock", 1039, 677, "stives"},
+		{"Tallin", 1039, 730, "stives"},
+		{"Teng", 1085, 759, "stives"},
+		{"Ingersol", 328, 184, "capellan"},
+		{"Bandora", 433, 214, "capellan"},
+		{"Capella", 573, 183, "capellan"},
+		{"No Return", 676, 214, "capellan"},
+		{"Randar", 706, 204, "capellan"},
+		{"Minnacora", 805, 177, "capellan"},
+		{"Ares", 902, 195, "capellan"},
+		{"Necromo", 916, 274, "capellan"},
+		{"Capricorn III", 850, 267, "capellan"},
+		{"New Sagan", 820, 216, "capellan"},
+		{"Relevow", 755, 278, "capellan"},
+		{"Aldertaine", 605, 294, "capellan"},
+		{"Geifer", 568, 266, "capellan"},
+		{"Cordiagr", 498, 294, "capellan"},
+		{"Masterson", 366, 264, "capellan"},
+		{"Propus", 291, 260, "capellan"},
+		{"Eom", 241, 297, "capellan"},
+		{"Boardwalk", 270, 331, "capellan"},
+		{"Kashilla", 346, 342, "capellan"},
+		{"Gei-fu", 682, 340, "capellan"},
+		{"Jasmine", 172, 358, "capellan"},
+		{"Kurragin", 370, 364, "capellan"},
+		{"Exedor", 275, 389, "capellan"},
+		{"Ovan", 531, 379, "capellan"},
+		{"Overton", 616, 391, "capellan"},
+		{"Calpaca", 233, 431, "capellan"},
+		{"Preston", 427, 425, "capellan"},
+		{"Glasgow", 516, 435, "capellan"},
+		{"Krin", 306, 467, "capellan"},
+		{"Pella II", 175, 501, "capellan"},
+		{"Harloc", 597, 486, "capellan"},
+		{"Sian", 392, 509, "capellan"},
+		{"Bentley", 302, 540, "capellan"},
+		{"Hexare", 529, 535, "capellan"},
+		{"Imalda", 524, 577, "capellan"},
+		{"New Westin", 570, 587, "capellan"},
+		{"Frondas", 251, 620, "capellan"},
+		{"Fronde", 321, 643, "capellan"},
+		{"Castrovia", 429, 648, "capellan"},
+		{"Decus", 610, 642, "capellan"},
+		{"Hustaing", 667, 609, "capellan"},
+		{"Purvo", 693, 684, "capellan"},
+		{"Altorra", 333, 710, "capellan"},
+		{"Claxton", 440, 715, "capellan"},
+		{"Carmen", 514, 715, "capellan"},
+		{"Sendalor", 604, 730, "capellan"},
+		{"Ito", 394, 780, "capellan"},
+		{"Housekarle", 542, 787, "capellan"},
 	}
 
-	// Если нужно больше миссий, чем есть в списке, возвращаем все
-	if count >= len(missionsList) {
-		result := make([]Mission, len(missionsList))
-		for i, name := range missionsList {
-			result[i] = Mission{
-				Name:   name,
-				Status: "active",
-			}
-		}
-		return result
-	}
-
-	// Перемешиваем миссии
-	shuffled := make([]string, len(missionsList))
-	copy(shuffled, missionsList)
-	rand.Shuffle(len(shuffled), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
-
-	// Берем первые count миссий
-	result := make([]Mission, 0, count)
-	for i := 0; i < count; i++ {
-		result = append(result, Mission{
-			Name:   shuffled[i],
-			Status: "active",
+	planets := make([]Planet, 0, len(raw))
+	for _, p := range raw {
+		planets = append(planets, Planet{
+			Name:         p.Name,
+			X:            p.X,
+			Y:            p.Y,
+			Faction:      p.Faction,
+			FactionColor: factionColor(p.Faction),
+			FactionName:  factionName(p.Faction),
+			OnFire:       false,
 		})
 	}
-
-	return result
+	return planets
 }
 
-// Получение одной случайной миссии
-func getRandomMission() string {
-	missions := []string{
-		"Эвакуация груза",
-		"Контроль поля битвы",
-		"Уничтожение противника",
-		"Удержание позиции",
-		"Прорыв",
-		"Поиск и уничтожение",
-		"Захват сброшенного груза",
-		"Эскорт",
-		"Удержание боевых точек",
-	}
-	return missions[rand.Intn(len(missions))]
-}
-
-// Старая функция для совместимости
-func generateMissions(count int) []Mission {
-	return generateRandomMissions(count)
-}
-
-func getFactionColor(faction string) string {
+func factionColor(faction string) string {
 	switch faction {
 	case "stives":
 		return "#40e0d0"
@@ -1030,7 +401,7 @@ func getFactionColor(faction string) string {
 	}
 }
 
-func getFactionName(faction string) string {
+func factionName(faction string) string {
 	switch faction {
 	case "stives":
 		return "Сент-Ивское Объединение"
@@ -1041,29 +412,13 @@ func getFactionName(faction string) string {
 	case "freeWorlds":
 		return "Содружество Свободных Миров"
 	default:
-		return "Нейтральная фракция"
+		return "Нейтральная"
 	}
 }
 
-func getAttackerFaction(defenderFaction string) string {
-	if defenderFaction == "stives" {
-		return "capellan"
-	} else if defenderFaction == "capellan" {
-		return "stives"
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	return "neutral"
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+	return fallback
 }
